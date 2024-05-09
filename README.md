@@ -93,6 +93,9 @@ ____________
 * Approve Data button: Reduce ages for the current sample input
 * DDDT!: Output reduced data #iykyk
 * Accept Reduction Parameters: If you accidentally clicked outside the popup but had everything input, click this button and it will run the necessary stuff in the background
+#### B) Concordia Plot: Default to Tera-Wasserburg. Click the Weth. tab for Wetherhill. Control x and y axis extent with sliders in GUI tools
+#### C) Boxplot: Has all ages for current sample. Basic statistics are shown in the plot.
+#### D) Sliding window fractionation: Shows how the fractionation factor changes throughout the run if you choose to correct for drift. Also see Gehrels et al. (2008) and Pullen et al. (2018).
 ____________
 ## Age and Error Calculation Additional Notes
 #### Age calculations largely follow prior authors (Kosler and Sylvester, 2003; Pullen et al., 2018; Horstwood et al. (2016)). Decay constants are from Jaffey et al. (1971) (238U / 235U), Cheng et al. (2000) (230Th), and Le Roux and Glendenin (1963) following the recommendations of Steiger and Jager (1977) (232Th). Errors on decay constants are from those authors or, for U, include the uncertainty for counting statistics (238U: 0.16%, 235U: 0.21%; Mattinson (187)) Data points are plotted on Tera-Wasserburg concordia and projected down from common Pb. If you have no common Pb input then the Stacey-Kramers model is assumed. Error propagation largely follows the community accepted protocol (Horstwood et al., 2016) except that we add the uncertainty from the ID-TIMS determinations and omit the excess variance, as we don't know what that value is for your lab. If you wish to include excess variance from the standards in your lab, you will need to input this additional error manually. All necessary error contributions are in the output file (see below). 
