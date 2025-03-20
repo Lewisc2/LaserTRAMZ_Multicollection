@@ -32,31 +32,33 @@ ____________
 ## Part One: Analyte Reduction
 #### Either run the script through the terminal or through an IDE (see more detail below). Input the file path to your file in the 'File path' input. The number of active detectors should automatically be picked up and a window with the appropriate number of possible inputs should pop up. From top left to bottom right, as if you were reading a book, input the analytes in the format MassElement (e.g., 238U). There is an option for each analyte to assign the mass to a Faraday or an Ion Counter. In reality, this really just handles counts to turn them into volts or vice versa in the software. On the Nu P3D all output columns should be in volts and thus all analytes should stay assigned as Faraday. If your mass spec is set to spit out numbers in counts, you will want to pick IC for those analytes. An example of the window is here:
 ![LaserTRAMZ_partI_collectorinput](https://github.com/Lewisc2/LaserTRAMZ_Nu/assets/65908927/2107416e-7292-44f1-963f-c2b1f637fe1a)
-#### Once the analytes are input, click Accept Detector Array. To load the plots onto the screen, click any key on the sliders. You should get a screen that looks something like this without all the colored/labeled squares:
-![LaserTRAMZ_partIscreenshot](https://github.com/Lewisc2/LaserTRAMZ_Nu/assets/65908927/cbf13d73-02ff-43df-85c3-c5ac22f1b6ae)
-#### Labeled squares are as follows: A) GUI tools, B) Plot of isotope ratios, C) Residuals for regressions, D) Intensities (cps) E) Confidence ellipsoids, F) Regression Statistics. More detail on each of these is immediately below.
+#### Once the analytes are input, click Accept Detector Array. To load the plots onto the screen, click any key on the sliders. You should get a screen that looks something like:
+<img width="1708" alt="Screenshot 2025-03-20 at 3 26 10 PM" src="https://github.com/user-attachments/assets/930097cb-0cb2-433b-8edb-6826d6eb059a" />
+#### The top graph shows the intensities for each analyte. The bottom left graph shows the time resolved ratios selected in the left banner. The bottom right graph will always only show the 207Pb/206Pb ratio. Note that the plots are interactable (e.g., panning, zooming, downloading, etc). Buttons at the top of the plot toggle the interaction options.
 
-#### A) Gui Tools. 
-* Approve Interval Button: Approve interval sends the current data in the background and ablation intervals to get reduced. When this button is clicked a window pops up for you to input a sample name (I typically print the list off the laser). Once the sample name is input click Accept Sample Name. Reduced data should get populated in the table at the bottom of the screen. Note that the analysis number for that sample and the global analysis number is automatically added. If you skip any analyses you will need to manually update the global analysis number (the table is editable).
-* DDDT! Button: This outputs the reduced data #iykyk
-* Jump Slider Button: Advances sliders according to jump time (see below)
-* Ablation start/end, background start/end, and ablation start true are sliders used to choose the ablation interval. These are plotted as solid, dashed, and dotted lines respectively. You may either slide the sliders, click the arrows, or click and manually input numbers above each of the sliders. Ablation start true is where the regression gets projected back to for the t0 intercept following Kosler et al. (2002). 
-* Jump time: Amount to jump the sliders forward. Makes it easy to advance everything. Should be roughly your background+ablation+washout time. WARNING: If you jump very far (e.g., reloading the program after coming back to it and going 5000 secs in the future) the calculations in the background will become very cumbersome for your computer to run due to the crazy values and large time domain the calculations are seeing. You can prevent this by turning off all the ratio buttons, regression buttons, and analyte buttons. It is mostly the ratio buttons and regression buttons that matter.
+#### Gui Tools. 
+* Ablation start/end and background start/end sliders are at the top of the screen. These are plotted as solid and dashed lines, respectively. You may either slide the sliders, click the arrows, or highlight and manually input numbers above each of the sliders.
+* Ablation start true is where the regression gets projected back to for the t0 intercept following Kosler et al. (2002). If you wish this to be at the start of hte ablation interval (as opposed to projecting backwards to the true start) you can simply click the 'Lock Back Projection' button. In my experience this is generally more reliable.
+* Jump Slider Button: Advances all sliders according to jump time (see below)
+* Jump time: Amount to jump the sliders forward. Makes it easy to advance everything for data collected in TRA mode (written specifically for Nu instruments). Should be roughly your background+ablation+washout time.
 * List of ratios: Choose which ratios to plot in the ratio plot
-* Regression Buttons: Choose whether to include 1st order regression or exponential regression in the reduction. Note at least one needs to be on in order to visualize residuals. We have found that even in total counts mode (see below) it is best to visualize these.
+* Regression Buttons: Choose whether to include 1st order regression or exponential regression in the reduction. Note at least one needs to be on in order to visualize residuals. Even in total counts mode (see below) it is best to visualize these and so they are always displayed.
 * Log Intensities: Logs intensities in the intensities plot
 * Analyte Buttons: Choose which analytes to plot in the intensities plot
 * Total Counts / Means and Regression Button: Choose whether to reduce the data using the total counts approach (i.e., integrating the signals, e.g., Johnston et al., 2004) or if Pb-U ratios should be regressed to the time zero intercept.
-* Integration time: Integration time in your output file. DO NOT CHANGE THIS
-* Generate Ellipse: Whether or not to output ellipsoid data (i.e., all integrations in the ablation interval)
+* Evalute Interval Button: Pulls up a window that allows you to visualize the fitted regressions, residuals, and confidence ellipsoid.
+* DDDT! Button: This outputs the reduced data
+* Integration time: Integration time in your output file. DO NOT CHANGE THIS UNLESS NEEDED. Note: This software currently does not deal with multiple integration time settings, but this feature is coming soon.
 * Power: Alpha value in the confidence ellipse. For 95% confidence leave this at 0.05
 * File path: Input file path here
 * Extra Buttons: In case you accidentally click out of the pop-up windows but had everything input already, you can run the rest of the calculations that would have been done by clicking the corresponding buttons.
-#### B) Ratio Plots: This is a bokeh plot so you can pan by clicking in dragging, zoom with the mouse wheel, reset, or download the plot. Buttons at the top of the plot toggle the options.
-#### C) Residuals: Residuals for the regressions. Also a Bokeh plot
-#### D) Intensity Plot: Shows time resolved intensities for relevant analytes. Also a bokeh plot.
-#### E) Confidence ellipse plots. Click the TW tab at the top for Tera-Wasserburg projection. Weth. for wetherhill projection
-#### F) Regression statistics. Note the screenshot may be outdated.
+#### Evalute Interval - Something akin to the following will pop-up upon clicking the Evaluate Interval Button.
+<img width="1330" alt="Screenshot 2025-03-20 at 3 27 35 PM" src="https://github.com/user-attachments/assets/14413aa0-a5ed-4d17-aa18-132ae45a4528" />
+* Everything here is static and can not be changed. If you are happy with the ablation interval, type the sample name into the box at the top and click the Accept button. The software will automatically recognize sample names that have previously been input and will autonumber the samples for you (e.g., 91500-1, 91550-2; you only type 91500).
+* Residuals plot is also interactable
+* On the Confidence ellipse plots click the TW tab at the top for Tera-Wasserburg projection. Weth. for wetherhill projection
+C) Residuals: Residuals for the regressions. Also a Bokeh plot
+
 ____________
 ## Part Two: Age Reduction
 #### Open the output files from part one and delete the first column and first row. Run the part two script through the terminal or an IDE. Copy and paste the file path into the appropriate input in the GUI tools. You should get a pop up window that looks like:
