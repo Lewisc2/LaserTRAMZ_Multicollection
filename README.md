@@ -1,4 +1,4 @@
-# LaserTRAMZ LA-ICP-MC-MS
+# LaserTRAMZ LA-MC-ICP-MS
 ____________
 ## Citing and Related Documentation
 #### See citation.cff file for citing information
