@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+Created on Thu Jan  2 15:20:07 2025
+
+@author: ctlewis
+"""
+
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
 Created on Mon May  6 12:18:40 2024
 
 @author: ctlewis
@@ -13,6 +21,7 @@ import numpy as np
 import bokeh
 from bokeh.plotting import figure
 from bokeh.layouts import row, gridplot
+from bokeh.models import Range1d
 import panel as pn
 import statistics
 import param
@@ -20,11 +29,15 @@ import sys
 import statsmodels.api as sm
 from patsy import dmatrices
 import scipy
+from scipy import stats
+from scipy.optimize import curve_fit
 from itertools import cycle
 import matplotlib as mpl
 mpl.use('agg')
 from matplotlib.figure import Figure
 from matplotlib.patches import Ellipse
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
 
 volt_count_constant = 1.602e-8 #volts / count
 color_palette = bokeh.palettes.Muted9
@@ -131,75 +144,6 @@ class calc_fncs:
             else:
                 pb207_pb204[i] = 0
                 
-        
-        # for i in range(0,len(data_ratio)): # loop through range of the data
-        #     if data_ratio['238U'][i] != 'bdl' and data_ratio['206Pb'][i] != 'bdl':
-        #         if data_ratio['238U'][i] > 0 and data_ratio['206Pb'][i] > 0: # test for denominator > 0
-        #             pb206_u238.append((data_ratio['206Pb'][i]/data_ratio['238U'][i])) # append ratio if condition satisfied
-        #             u238_pb206.append((data_ratio['238U'][i]/data_ratio['206Pb'][i]))
-        #         else: # append zero otherwise
-        #             pb206_u238.append(0)
-        #             u238_pb206.append(0)
-        #     else:
-        #         pb206_u238.append(0)
-        #         u238_pb206.append(0)
-            
-        # for i in range(0,len(data_ratio)):
-        #     if data_ratio['235U'][i] != 'bdl' and data_ratio['207Pb'][i] != 'bdl':
-        #         if data_ratio['235U'][i] > 0 and data_ratio['207Pb'][i] > 0:
-        #             pb207_u235.append((data_ratio['207Pb'][i]/data_ratio['235U'][i]))
-        #         else:
-        #             pb207_u235.append(0)
-        #     else:
-        #         pb207_u235.append(0)
-                
-        # for i in range(0,len(data_ratio)):
-        #     if data_ratio['208Pb'][i] != 'bdl' and data_ratio['232Th'][i] != 'bdl':
-        #         if data_ratio['208Pb'][i] > 0 and data_ratio['232Th'][i] > 0:
-        #             pb208_th232.append((data_ratio['208Pb'][i]/data_ratio['232Th'][i]))
-        #         else:
-        #             pb208_th232.append(0)
-        #     else:
-        #         pb208_th232.append(0)
-            
-        # for i in range(0,len(data_ratio)):
-        #     if data_ratio['206Pb'][i] != 'bdl' and data_ratio['207Pb'][i] != 'bdl':
-        #         if data_ratio['206Pb'][i] > 0 and data_ratio['207Pb'][i] > 0:
-        #             pb207_pb206.append((data_ratio['207Pb'][i]/data_ratio['206Pb'][i]))
-        #         else:
-        #             pb207_pb206.append(0)
-        #     else:
-        #         pb207_pb206.append(0)
-                    
-                
-        # for i in range(0,len(data_ratio)):
-        #     if data_ratio['235U'][i] != 'bdl' and data_ratio['238U'][i] != 'bdl':
-        #         if data_ratio['235U'][i] > 0 and data_ratio['238U'][i] > 0:
-        #             u238_u235.append((data_ratio['238U'][i]/data_ratio['235U'][i]))
-        #         else:
-        #             u238_u235.append(0)
-        #     else:
-        #         u238_u235.append(0)
-        
-        # for i in range(0,len(data_ratio)):
-        #     if data_ratio['238U'][i] != 'bdl' and data_ratio['232Th'][i] != 'bdl':
-        #         if data_ratio['238U'][i] > 0 and data_ratio['232Th'][i] > 0:
-        #             u238_th232.append((data_ratio['238U'][i]/data_ratio['232Th'][i]))
-        #         else:
-        #             u238_th232.append(0)
-        #     else:
-        #         u238_th232.append(0)
-        
-        # for i in range(0,len(data_ratio)):
-        #     if data_ratio['206Pb'][i] != 'bdl' and data_ratio['204Pb'][i] != 'bdl':
-        #         if data_ratio['206Pb'][i] > 0 and data_ratio['204Pb'][i] > 0:
-        #             pb206_pb204.append((data_ratio['206Pb'][i]/data_ratio['204Pb'][i]))
-        #         else:
-        #             pb206_pb204.append(0)
-        #     else:
-        #         pb206_pb204.append(0)
-                
-                
         # insert the lists into the copied dataframe
         data_ratio['206Pb/238U'] = pb206_u238
         data_ratio['238U/206Pb'] = u238_pb206
@@ -214,6 +158,39 @@ class calc_fncs:
         data_ratio = data_ratio.iloc[:,(og_len-1):] # insert the calculated ratios onto the end of the copied dataframe
         
         return data_ratio
+
+    
+    def threesig_outlierremoval(data):
+        whileloopdata = data.reset_index(drop=True)
+        ratios = ['206Pb/238U','207Pb/235U','207Pb/206Pb','238U/235U','238U/206Pb','208Pb/232Th','238U/232Th','206Pb/204Pb']
+            
+        for r in ratios:
+            threesig = 3*whileloopdata[r].std()
+            mean = whileloopdata[r].mean()
+            loopvariable = True
+            trigger = False
+            while loopvariable == True:
+                # break the loop if the regression fails and the array is nan of length 1
+                if len(whileloopdata)<=2:
+                    break
+                else:
+                    for i in range(1,len(whileloopdata)-1):
+                        # check if point is a 3sigma outlier
+                        if np.abs(mean-whileloopdata.loc[i,r]) > mean+threesig:
+                            whileloopdata.loc[i,r] = np.mean([whileloopdata.loc[i-1,r],whileloopdata.loc[i+1,r]]) # interpolate with mean of two nearest points
+                            threesig = 3*whileloopdata[r].std() # recalculate three sigma with updated point
+                            mean = whileloopdata[r].mean() # recalculate mean with updated point
+                            trigger = True # fire trigger that prevents while variable to switch to false and reloop with updated data
+                        else:
+                            whileloopdata.loc[i,r] = whileloopdata.loc[i,r]
+                    # if some datapoint was triggered as a threesig outlier, leave the var as true
+                    # otherwise change the var to false to exit the while loop
+                    if trigger == True:
+                        trigger = False # reset trigger variable in prep for next loop
+                    else:
+                        loopvariable = False
+                        
+        return whileloopdata
     
     
     def get_counts(data,counts_mode,ablation_start_true,bckgrnd_start_input,bckgrnd_stop_input,ablation_start_input,ablation_stop_input, integration_time,analyte_cols):
@@ -256,6 +233,7 @@ class calc_fncs:
             # get counts of all analytes in the dataframe by multiply each pass by integration time, then summing all observations
             data_totalcounts = np.sum(data.loc[:,start_analyte:stop_analyte] * integration_time)
             data_ratios_ = calc_fncs.get_ratios(data) # get ratios
+            data_ratios_ = calc_fncs.threesig_outlierremoval(data_ratios_)
             pb206_u238 = data_totalcounts['206Pb']/data_totalcounts['238U']
             u238_pb206 = data_totalcounts['238U']/data_totalcounts['206Pb']
             pb207_u235 = data_totalcounts['207Pb']/data_totalcounts['235U']
@@ -268,61 +246,43 @@ class calc_fncs:
             
             
             # community accepted SE of measurement on ratios and their percentages
-            pb206_u238SE = data_ratios_['206Pb/238U'].sem()
             pb206_u238SE_percent = data_ratios_['206Pb/238U'].sem()/pb206_u238*100
-            u238_pb206SE = data_ratios_['238U/206Pb'].sem()
             u238_pb206SE_percent = data_ratios_['238U/206Pb'].sem()/u238_pb206*100
-            pb207_u235SE = data_ratios_['207Pb/235U'].sem()
             pb207_u235SE_percent = data_ratios_['207Pb/235U'].sem()/pb207_u235*100
-            pb208_th232SE = data_ratios_['208Pb/232Th'].sem()
             pb208_th232SE_percent = data_ratios_['208Pb/232Th'].sem()/pb208_th232*100
-            u238_235SE = data_ratios_['238U/235U'].sem()
             u238_235SE_percent = data_ratios_['238U/235U'].sem()/u238_235*100
-            u238_th232SE = data_ratios_['238U/232Th'].sem()
             u238_th232SE_percent = data_ratios_['238U/232Th'].sem()/u238_th232*100
-            pb207_206SE = data_ratios_['207Pb/206Pb'].sem()
             pb207_206SE_percent = data_ratios_['207Pb/206Pb'].sem()/pb207_206*100
-            pb206_204SE = data_ratios_['206Pb/204Pb'].sem()
             pb206_204SE_percent = data_ratios_['206Pb/204Pb'].sem()/pb206_204*100
-            pb207_204SE = data_ratios_['207Pb/204Pb'].sem()
             pb207_204SE_percent = data_ratios_['207Pb/204Pb'].sem()/pb207_204*100
 
             
             ratios_to_return = [pb206_u238,u238_pb206,pb207_u235,pb208_th232,pb207_206,u238_235,u238_th232,pb206_204,pb207_204]
-            stats_to_return = [pb206_u238SE,pb206_u238SE_percent,u238_pb206SE,u238_pb206SE_percent,pb207_u235SE,pb207_u235SE_percent,pb208_th232SE,pb208_th232SE_percent,
-                               pb207_206SE,pb207_206SE_percent,
-                               u238_235SE,u238_235SE_percent,u238_th232SE,u238_th232SE_percent,
-                               pb206_204SE,pb206_204SE_percent,pb207_204SE,pb207_204SE_percent]
+            stats_to_return = [pb206_u238SE_percent,u238_pb206SE_percent,pb207_u235SE_percent,pb208_th232SE_percent,
+                               pb207_206SE_percent,u238_235SE_percent,u238_th232SE_percent,
+                               pb206_204SE_percent,pb207_204SE_percent]
             
             return ratios_to_return,stats_to_return
             
             
         elif counts_mode == 'Means & Regression':
             data_ratios_ = calc_fncs.get_ratios(data)
+            data_ratios_ = calc_fncs.threesig_outlierremoval(data_ratios_)
             pb206_204 = data_ratios_['206Pb/204Pb'].mean()
             pb207_204 = data_ratios_['207Pb/204Pb'].mean()
             pb207_206 = data_ratios_['207Pb/206Pb'].mean()
             u238_235 = data_ratios_['238U/235U'].mean()
             u238_th232 = data_ratios_['238U/232Th'].mean()
             
-            pb206_204SE = data_ratios_['206Pb/204Pb'].sem()
             pb206_204SE_percent = data_ratios_['206Pb/204Pb'].sem()/pb206_204*100
-            pb207_204SE = data_ratios_['207Pb/204Pb'].sem()
             pb207_204SE_percent = data_ratios_['207Pb/204Pb'].sem()/pb207_204*100
-            pb207_206SE = data_ratios_['207Pb/206Pb'].sem()
             pb207_206SE_percent = data_ratios_['207Pb/206Pb'].sem()/pb207_206*100
-            u238_235SE = data_ratios_['238U/235U'].sem()
             u238_235SE_percent = data_ratios_['238U/235U'].sem()/u238_235*100
-            u238_th232SE = data_ratios_['238U/232Th'].sem()
             u238_th232SE_percent = data_ratios_['238U/232Th'].sem()/u238_th232*100
             
-            # ratios_to_return = [pb207_206,pb206_204,pb207_204,u238_235,u238_th232]
-            # stats_to_return = [pb207_206SE,pb207_206SE_percent,pb206_204SE,pb206_204SE_percent,pb207_204SE,pb207_204SE_percent,
-            #                    u238_235SE,u238_235SE_percent,u238_th232SE,u238_th232SE_percent]
+            
             ratios_to_return = [pb207_206,u238_235,u238_th232,pb206_204,pb207_204]
-            stats_to_return = [pb207_206SE,pb207_206SE_percent,
-                               u238_235SE,u238_235SE_percent,u238_th232SE,u238_th232SE_percent,
-                               pb206_204SE,pb206_204SE_percent,pb207_204SE,pb207_204SE_percent]
+            stats_to_return = [pb207_206SE_percent,u238_235SE_percent,u238_th232SE_percent,pb206_204SE_percent,pb207_204SE_percent]
             
             return ratios_to_return,stats_to_return
         
@@ -350,6 +310,7 @@ class calc_fncs:
             residuals_plot: returns regression residuals to plot
 
         """
+        data = calc_fncs.threesig_outlierremoval(data)
         data = data.reset_index(drop=True)
         t0 = data.loc[0,'Time']
         data['Time'] = data['Time']-t0
@@ -365,7 +326,7 @@ class calc_fncs:
             predicted_b01 = fit1.params[0] + fit1.params[1]*ablation_start_true # get the predicted value at the ablation start that is input by the user
             sigma1 = np.sqrt(fit1.ssr/fit1.df_resid) # get the 1SD (Sum Squared residuals / residual degrees of freedom)^(1/2)
             # get standard error for a single point estiamted by a regression model
-            SE_b01 = sigma1*np.sqrt(1/len(data)+(ablation_start_true-data['Time'].mean())**2/((len(data)-1)*statistics.variance(data['Time'])))
+            SE_b01 = sigma1*np.sqrt(1/len(data)+(data['Time'].mean())**2/((len(data)-1)*np.var(data['Time'],ddof=2)))
             SE_b01_percent = SE_b01/predicted_b01*100 # get the % 1SE
             resid1 = fit1.resid # get the residuals of the regression
             
@@ -374,7 +335,7 @@ class calc_fncs:
             predicted1_207 = fit1_207.params[0] + fit1_207.params[1]*data.Time # get the predicted y values for the given x values
             predicted_b01_207 = fit1_207.params[0] + fit1_207.params[1]*ablation_start_true # get the predicted value at the ablation start that is input by the user
             sigma1_207 = np.sqrt(fit1_207.ssr/fit1_207.df_resid) # get the 1SD (Sum Squared residuals / residual degrees of freedom)^(1/2)
-            SE_b01_207 = sigma1_207*np.sqrt(1/len(data)+(ablation_start_true-data['Time'].mean())**2/((len(data)-1)*statistics.variance(data['Time'])))
+            SE_b01_207 = sigma1_207*np.sqrt(1/len(data)+(data['Time'].mean())**2/((len(data)-1)*np.var(data['Time'],ddof=2)))
             SE_b01_percent_207 = SE_b01_207/predicted_b01_207*100 # get the % 1SE
             resid1_207 = fit1_207.resid # get the residuals of the regression
         else:
@@ -394,15 +355,46 @@ class calc_fncs:
             
         if 'Exp. Regression' in regression_buttons:
             # fit exponential regression - ommitting added constant on the backend (Paton et al., 2010) as it is simply an unneeded added parameter that's difficult to interpret in log space
-            def exp_func(x,a,b):
-                return a*np.exp(b*x)
-            exp_reg = np.polyfit(data['Time'],np.log(data['206Pb/238U']),1,w=np.log(data['206Pb/238U'])) # fit the logged data to time, weighting for the ratio to force the curve fitter to fit the points better. Emulates scipy.optimize
-            exp_reg_207 = np.polyfit(data['Time'],np.log(data['207Pb/235U']),1) # same as above but for 207/235
+            def exp_func(x,a,b,c):
+                return a*np.exp(-b*x)+c
+            def simple_exp_func(x,a,b):
+                return a*np.exp(-b*x)
             
-            predictedexp = exp_func(data['Time'],np.exp(exp_reg[1]),exp_reg[0]) # fit the regression using the paramters
-            predictedexp_207 = exp_func(data['Time'],np.exp(exp_reg_207[1]),exp_reg_207[0]) # ditto but 7/35
-            predicted_b0exp = exp_func(ablation_start_true,np.exp(exp_reg[1]),exp_reg[0]) # get the predicted y-intercept from the regression
-            predicted_b0exp_207 = exp_func(ablation_start_true,np.exp(exp_reg_207[1]),exp_reg_207[0]) # ditto but 7/35
+            curve638 = 'extra variable'
+            curve735 = 'extra variable'
+            
+            default_206238_initparams = [0.1,0.05,0.02]
+            default_207235_initparams = [1,0.05,0.02]
+            
+            try:
+                popt,pcov = curve_fit(exp_func,data['Time'].to_numpy(),data['206Pb/238U'].to_numpy(),p0=default_206238_initparams)
+            except RuntimeError:
+                print('Runtime Error: simplifying exponential function 206/238')
+                newparams_638 = [0.1,0.05]
+                popt,pcov = curve_fit(simple_exp_func,data['Time'].to_numpy(),data['206Pb/238U'].to_numpy(),p0=newparams_638)
+                curve638 = 'simple'
+                
+            try:
+                popt_207,pcov_207 = curve_fit(exp_func,data['Time'].to_numpy(),data['207Pb/235U'].to_numpy(),p0=default_207235_initparams)
+            except RuntimeError:
+                print('Runtime Error: simplifying exponential function 207/235')
+                newparams_735 = [0.9,0.05]
+                popt_207,pcov_207 = curve_fit(simple_exp_func,data['Time'].to_numpy(),data['207Pb/235U'].to_numpy(),p0=newparams_735)
+                curve735 = 'simple'
+                
+            if curve638 == 'extra variable':
+                predictedexp = exp_func(data['Time'],*popt)
+                predicted_b0exp = popt[0]*np.exp(-popt[1]*ablation_start_true)+popt[2]
+            elif curve638 == 'simple':
+                predictedexp = simple_exp_func(data['Time'],*popt)
+                predicted_b0exp = popt[0]*np.exp(-popt[1]*ablation_start_true)
+            if curve735 == 'extra variable':
+                predictedexp_207 = exp_func(data['Time'],*popt_207)
+                predicted_b0exp_207 = popt_207[0]*np.exp(-popt_207[1]*ablation_start_true)+popt_207[2]
+            elif curve735 == 'simple':
+                predictedexp_207 = simple_exp_func(data['Time'],*popt_207)
+                predicted_b0exp_207 = popt_207[0]*np.exp(-popt_207[1]*ablation_start_true)
+                
             
             # initialize arrays to be filled with residuals and squared residuals
             resid = np.zeros(len(predictedexp))
@@ -419,8 +411,8 @@ class calc_fncs:
             sum_sq_resid_207 = np.sum(sq_resid_207)
             sigmaexp = np.sqrt(sum_sq_resid/(len(data['206Pb/238U'])-2)) # denominator = d.f. = n-#params
             sigmaexp_207 = np.sqrt(sum_sq_resid_207/(len(data['207Pb/235U'])-2)) # denominator = d.f. = n-#params
-            SE_b0exp = sigmaexp*np.sqrt(1/len(data)+(ablation_start_true-data['Time'].mean())**2/((len(data)-1)*statistics.variance(data['Time']))) # get standard error of intercept
-            SE_b0exp_207 = sigmaexp_207*np.sqrt(1/len(data)+(ablation_start_true-data['Time'].mean())**2/((len(data)-1)*statistics.variance(data['Time'])))
+            SE_b0exp = sigmaexp*np.sqrt(1/len(data)+(data['Time'].mean())**2/((len(data)-1)*np.var(data['Time'],ddof=2))) # get standard error of intercept
+            SE_b0exp_207 = sigmaexp_207*np.sqrt(1/len(data)+(data['Time'].mean())**2/((len(data)-1)*np.var(data['Time'],ddof=2)))
             SE_b0exp_percent = SE_b0exp/predicted_b0exp*100 # calculate % error for SE of intercept
             SE_b0exp_percent_207 = SE_b0exp_207/predicted_b0exp_207*100
             residexp = resid # reassign variables
@@ -450,9 +442,8 @@ class calc_fncs:
             
             # put the calculated values and statistics in lists to be returned
             ratios_to_return = [predicted_b01,predicted_b0exp,predicted_b01_207,predicted_b0exp_207]
-            stats_to_return = [rsquared1,rsquared_exp,rsquaredexp_adj,
-                               SE_b01,SE_b01_percent,SE_b0exp,SE_b0exp_percent,
-                               SE_b01_207,SE_b01_percent_207,SE_b0exp_207,SE_b0exp_percent_207]
+            stats_to_return = [SE_b01_percent,SE_b0exp_percent,
+                               SE_b01_percent_207,SE_b0exp_percent_207]
             
             return ratios_to_return,stats_to_return
         
@@ -462,7 +453,7 @@ class calc_fncs:
             
             return regressions_to_return,stats_to_report
         
-        elif callingmethod == 'get_regression_stats':
+        elif callingmethod == 'evaluate_output_data':
             # ""
             regressions_to_return = [predicted1,predictedexp]
             stats_to_report = [rsquared1,rsquared_exp,SE_b01_percent,SE_b0exp_percent,SE_b01_percent_207,SE_b0exp_percent_207]
@@ -477,6 +468,12 @@ class calc_fncs:
             
             return predicted_to_return,predicted_to_return_207,resid_to_return,resid_to_return_207
         
+        elif callingmethod == 'get_ellipse':
+            predicted_to_return = [predicted1,predictedexp]
+            predicted_to_return_207 = [predicted1_207,predictedexp_207]
+            
+            return predicted_to_return,predicted_to_return_207
+        
         else:
             pass
         
@@ -484,7 +481,7 @@ class calc_fncs:
     def get_approved(data,bckgrnd_start_input,bckgrnd_stop_input,
                      ablation_start_input,ablation_stop_input,ablation_start_true,
                      regression_buttons,ellipsemode_selector,
-                     counts_mode,integration_time,sample_name,new_index):
+                     counts_mode,integration_time,sample_name,new_index,power):
         """
 
         Parameters
@@ -540,7 +537,6 @@ class calc_fncs:
         # calculating ratios
         
         
-        # print(background_subtracted_data)
         data_toapprove.iloc[:,0:-1] = background_subtracted_data # insert the background subtracted data into the copied dataframe
         data_toapprove = data_toapprove[(data_toapprove.Time >= ablation_start_input) & (data_toapprove.Time <= ablation_stop_input)]
         data_toapprove = data_toapprove.reset_index(drop=True)
@@ -549,10 +545,9 @@ class calc_fncs:
             data_ratios_all,data_stats_all = calc_fncs.get_counts(data_toapprove, counts_mode, ablation_start_true, bckgrnd_start_input, bckgrnd_stop_input, ablation_start_input, ablation_stop_input,integration_time,analyte_cols)
             data_ratios = pd.DataFrame([data_ratios_all],columns=['206Pb/238U','238U/206Pb','207Pb/235U','208Pb/232Th','207Pb/206Pb','238U/235U','238U/232Th','206Pb/204Pb','207Pb/204Pb'])
             
-            data_stats = pd.DataFrame([data_stats_all],columns=['SE 206/238','SE% 206/238','SE 238U/206Pb','SE% 238U/206Pb','SE 207/235','SE% 207/235','SE 208/232','SE% 208/232',
-                                                                'SE 207/206','SE% 207/206',
-                                                                'SE 238/235','SE% 238/235','SE 238/232','SE% 238/232',
-                                                                'SE 206/204','SE% 206/204','SE 207/204','SE% 207/204'])
+            data_stats = pd.DataFrame([data_stats_all],columns=['SE% 206Pb/238U','SE% 238U/206Pb','SE% 207Pb/235U','SE% 208Pb/232Th',
+                                                                'SE% 207Pb/206Pb','SE% 238U/235U','SE% 238U/232Th',
+                                                                'SE% 206Pb/204Pb','SE% 207Pb/204Pb'])
             
         elif counts_mode == 'Means & Regression':
             data_approved_ratio = data_toapprove.copy() # copy the dataframe as to not overwrite the input data
@@ -562,26 +557,32 @@ class calc_fncs:
             data_ratios_counts,data_stats_counts = calc_fncs.get_counts(data_toapprove, counts_mode, ablation_start_true, bckgrnd_start_input, bckgrnd_stop_input, ablation_start_input, ablation_stop_input,integration_time,analyte_cols)
             data_ratios = data_ratios_reg + data_ratios_counts
             data_stats = data_stats_reg + data_stats_counts
-            data_ratios = pd.DataFrame([data_ratios],columns=['206/238 1st Order','206/238 Exp.','207/235 1st Order','207/235 Exp.','207Pb/206Pb','238U/235U','238U/232Th','206Pb/204Pb','207Pb/204Pb']) # put the relevant calculations in df with appropriate column headers
+            data_ratios = pd.DataFrame([data_ratios],columns=['206Pb/238U 1st Order','206Pb/238U Exp.','207Pb/235U 1st Order','207Pb/235U Exp.','207Pb/206Pb','238U/235U','238U/232Th','206Pb/204Pb','207Pb/204Pb']) # put the relevant calculations in df with appropriate column headers
             # put the relevant calculations in df with appropriate column headers
-            data_stats = pd.DataFrame([data_stats],columns=['R2 1st Order','R2 Exp','R2 Adj Exp',
-                                                            'SE 206/238 1st Order','SE% 206/238 1st Order','SE 206/238 Exp','SE% 206/238 Exp',
-                                                            'SE 207/235 1st Order','SE% 207/235 1st Order','SE 207/235 Exp','SE% 207/235 Exp',
-                                                            'SE 207/206','SE% 207/206','SE 238/235','SE% 238/235','SE 238/232','SE% 238/232',
-                                                            'SE 206/204','SE% 206/204','SE 207/204','SE% 207/204'])
+            data_stats = pd.DataFrame([data_stats],columns=['SE% 206Pb/238U 1st Order','SE% 206Pb/238U Exp','SE% 207Pb/235U 1st Order','SE% 207Pb/235U Exp',
+                                                            'SE% 207Pb/206Pb','SE% 238U/235U','SE% 238U/232Th',
+                                                            'SE% 206Pb/204Pb','SE% 207Pb/204Pb'])
         
         # get the ablation period indexed, background subtracted, indvidual isotope measurements. 
         # Copy data to ellipsoids before bdls are assigned if ellipsoids are indeed requested
+        data_toapprove = data_toapprove[(data_toapprove.Time >= ablation_start_input) & (data_toapprove.Time <= ablation_stop_input)]
         if ellipsemode_selector is True:
             ellipse_data_toapprove = data_toapprove.copy()
             ellipse_data_toapprove = ellipse_data_toapprove.reset_index(drop=True)
+            ellipse_data_toapprove = calc_fncs.get_ratios(ellipse_data_toapprove)
         data_toapprove_SE = pd.DataFrame([data_toapprove.iloc[:,0:-1].sem()]).add_suffix('_1SE') # get SE's of the individual isotopes
         data_toapprove = pd.DataFrame([data_toapprove.iloc[:,0:-1].mean()]) # put means of isotopic values in a dataframe
         
         # 202Hg: 29.86%, 204Hg: 6.87% https://www.nndc.bnl.gov/nudat3/
         Hgratio = (6.87/100) / (29.86/100) # get cononical 204Hg/202Hg ratio
         
-                        
+        Weth_ellparams,TW_ellparams = calc_fncs.get_ellipse(ellipse_data_toapprove,power,ablation_start_true,regression_buttons,counts_mode)
+        
+        Weth_ellparams = pd.DataFrame([Weth_ellparams],columns=['Weth C','Weth Wid1','Weth Wid2','Weth rho'])
+        TW_ellparams = pd.DataFrame([TW_ellparams],columns=['TW C','TW Wid1','TW Wid2','TW rho'])
+        
+        # needs to come after getting ellipsoid params because function uses get_ratios, which needs the data input in the form that it is uploaded
+        
         # take the means of the individual isotopes and run them through a for loop with the detection limits. Assign a value of 'bdl' if below detection limit. Otherwise, leave the 
         # value unchanged
         for i,k in zip(range(0,len(data_toapprove.iloc[0])),lod):
@@ -615,13 +616,10 @@ class calc_fncs:
         data_toapprove.insert(6,'b end',[bckgrnd_stop_input])
         # stitch the individual isotopic measurements, their errors, ratios, ratio errors, and regression results / regression statistics into a df together.
         # these are then appeneded into the output df
-        data_approved = data_toapprove.join([data_toapprove_SE,data_ratios,data_stats])
+        data_approved = data_toapprove.join([data_toapprove_SE,data_ratios,data_stats,Weth_ellparams,TW_ellparams])
         
         # check if any of the individual analytes in their reduced form (i.e., their means) are bdl. if so, set the ratio to bdl as well
-        if '204Hg' in analyte_cols:
-            ratio_cols = ['206Pb/204Pb','207Pb/204Pb','207Pb/206Pb','238U/235U']
-        else:
-            ratio_cols = ['207Pb/206Pb','238U/235U']
+        ratio_cols = ['206Pb/204Pb','207Pb/204Pb','207Pb/206Pb','238U/235U']
         for i in analyte_cols:
             for k in ratio_cols:
                 if k.__contains__(str(i)) and data_approved[i].item() == 'bdl':
@@ -629,82 +627,11 @@ class calc_fncs:
                 else:
                     pass
         
-            
-        # check if ellipses are requested by user
-        if ellipsemode_selector is True:
-            # get ratios from the ellipse data
-            ellipse_data_toapprove_ratio = calc_fncs.get_ratios(ellipse_data_toapprove)
-            # loop through the integrations and assign values bdl since they all go into calculating ellipsoids - zipping analytes and their respective DLs here
-            for i,k in zip(ellipse_data_toapprove.loc[:,list(analyte_cols)],lod):
-                # loop through the individual observations on analyte i
-                for j in range(0,len(ellipse_data_toapprove.iloc[:,0])):
-                    if ellipse_data_toapprove.loc[j,i]<k:
-                        ellipse_data_toapprove.loc[j,i]='bdl' # assign bdl if the observation is bdl
-                    elif ellipse_data_toapprove.loc[j,i]>k:
-                        ellipse_data_toapprove.loc[j,i]=ellipse_data_toapprove.loc[j,i] # assign it the same value otherwise
-            # check if 202Hg was measured
-            if '202Hg' in ellipse_data_toapprove.columns:                
-                loc202hg = ellipse_data_toapprove.columns.get_loc('202Hg') # get location of 202Hg in the data columns
-                loc204pb = ellipse_data_toapprove.columns.get_loc('204Pb') # get location of 204Pb in the data columns
-                ellipse_data_toapprove['204Hg'] = np.zeros(len(ellipse_data_toapprove)) # set 204Hg to zeros in ordre to be filled if 202Hg was observed
-                loc204hg = ellipse_data_toapprove.columns.get_loc('204Hg') # get location of 204Hg (added upon data upload) in the data columns
-                # loop through all of the integrations
-                for i in range(0,len(ellipse_data_toapprove.iloc[:,0])):
-                    # check if the integration is bdl for 202Hg
-                    if ellipse_data_toapprove.iloc[i,loc202hg] != 'bdl':
-                        ellipse_data_toapprove.iloc[i,loc204hg] = ellipse_data_toapprove.iloc[i,loc202hg]*Hgratio # calculate and assign the intensity of 204Hg
-                        # check if anything was even observed on 204
-                        if ellipse_data_toapprove.iloc[i,loc204pb] != 'bdl':
-                            ellipse_data_toapprove.iloc[i,loc204pb] = ellipse_data_toapprove.iloc[i,loc204pb] - ellipse_data_toapprove.iloc[i,loc204hg] # subtract 204Hg signal from 204Pb signal
-                            # check that 204 is still above DL after subtracting 204Hg signal. Assign bdl if so, let it retain its value if not
-                            if ellipse_data_toapprove.iloc[i,loc204pb] <= lod[loc204pb]:
-                                ellipse_data_toapprove.iloc[i,loc204pb] = 'bdl'
-                            elif ellipse_data_toapprove.iloc[i,loc204pb] > lod[loc204pb]:
-                                ellipse_data_toapprove.iloc[i,loc204pb] = ellipse_data_toapprove.iloc[i,loc204pb] 
-                    else:
-                        pass
-                    
-                    
-        # assign ratios to bdl if they have an analyte that is bdl (similar to above but for ellipsoid data and not point estimates)
-        if ellipsemode_selector is True:
-            if '204Hg' in ellipse_data_toapprove.columns:
-                ellipse_data_toapprove = pd.concat([ellipse_data_toapprove,ellipse_data_toapprove_ratio],axis=1)
-                
-                ratio_colsII = ['206Pb/204Pb','207Pb/206Pb','238U/235U','207Pb/235U','206Pb/238U','238U/206Pb','208Pb/232Th','207Pb/204Pb']
-                for i in analyte_cols:
-                    for k in ratio_colsII:
-                        if k.__contains__(str(i)):
-                            for j in range(0,len(ellipse_data_toapprove)):
-                                if ellipse_data_toapprove.loc[j,i] == 'bdl':
-                                    ellipse_data_toapprove.loc[j,k] = 'bdl'
-            else:
-                ellipse_data_toapprove_ratio = calc_fncs.get_ratios(ellipse_data_toapprove)
-                # ellipse_data_toapprove_ratio.rename({'Pb206_Pb204':'206Pb/204Pb' , 'Pb206_U238':'206Pb/238U', 'Pb207_U235':'207Pb/235U', 'Pb207_Pb206':'207Pb/206Pb', 'U235_U238':'235U/238U', 'U238_U235':'238U/235U'}, axis=1, inplace=True)
-                ellipse_data_toapprove = pd.concat([ellipse_data_toapprove,ellipse_data_toapprove_ratio],axis=1)
-                
-                ratio_colsII = ['207Pb/206Pb','238U/235U','207Pb/235U','206Pb/238U','238U/206Pb','208Pb/232Th','207Pb/204Pb']
-                for i in analyte_cols:
-                    for k in ratio_colsII:
-                        if k.__contains__(str(i)):
-                            for j in range(0,len(ellipse_data_toapprove)):
-                                if ellipse_data_toapprove.loc[j,i] == 'bdl':
-                                    ellipse_data_toapprove.loc[j,k] = 'bdl'
-            ellipse_data_toapprove.insert(0,'measurementindex',np.full(len(ellipse_data_toapprove),new_index))
-            ellipse_data_toapprove.insert(1,'SampleLabel',np.full(len(ellipse_data_toapprove),sample_name)) # reinsert the sample label into the calculation df
-            ellipse_data_toapprove.insert(2,'t start',np.full(len(ellipse_data_toapprove),ablation_start_input)) # insert ablation start time into df
-            ellipse_data_toapprove.insert(3,'t end',np.full(len(ellipse_data_toapprove),ablation_stop_input)) # insert ablation stop time into df
-            ellipse_data_toapprove.insert(4,'t project',np.full(len(ellipse_data_toapprove),ablation_start_true)) # insert projected regression start time into df
-            ellipse_data_toapprove.insert(5,'b start',np.full(len(ellipse_data_toapprove),bckgrnd_start_input)) # insert background start time into df
-            ellipse_data_toapprove.insert(6,'b end',np.full(len(ellipse_data_toapprove),bckgrnd_stop_input)) # insert background end time into df
-            ellipse_data_toapprove = ellipse_data_toapprove.loc[:,~ellipse_data_toapprove.columns.duplicated()].copy()
-                
-        else:
-            ellipse_data_toapprove = 0
         
-        return data_approved,ellipse_data_toapprove
+        return data_approved
     
     
-    def get_ellipse(data,power):
+    def get_ellipse(data,power,ablation_start_true,regression_buttons,counts_mode):
         """
         Function that gets the confidence ellipses
 
@@ -723,6 +650,20 @@ class calc_fncs:
             array of float objects defining the dimensions of the confidence ellipse for Tera-Wasserburg concordia.
 
         """
+        data = data.dropna()
+        drop_condn = data[(data['206Pb/238U'] == 0) | (data['207Pb/235U'] == 0) | (data['207Pb/206Pb'] == 0)].index
+        data.drop(drop_condn,inplace=True)
+        data = data.reset_index(drop=True)
+        
+        if counts_mode != 'Total Counts':
+            predicted,predicted_207 = calc_fncs.get_regressions(data,regression_buttons,ablation_start_true)
+            if ('1st Order' in regression_buttons) and ('Exp. Regression' not in regression_buttons):
+                data['207Pb/235U'] = predicted_207[0]
+                data['206Pb/238U'] = predicted[0]
+            else:
+                data['207Pb/235U'] = predicted_207[1]
+                data['206Pb/238U'] = predicted[1]
+        
         x1 = data['207Pb/235U']
         y1 = data['206Pb/238U']
         x2 = 1/data['206Pb/238U']
@@ -765,7 +706,7 @@ class plots(calc_fncs):
     
     def ratio_plot(data,ratio_buttons,regression_buttons,
                    start_bckgrnd,stop_bckgrnd,
-                   start_ablation,stop_ablation,ablation_start_true):
+                   start_ablation,stop_ablation,ablation_start_true,displayframe):
         """
         Function for displaying the plot of relavent isotopic ratios.
         
@@ -796,21 +737,27 @@ class plots(calc_fncs):
         """
         data = calc_fncs.get_ratios(data) # get calculated ratios from the data
         data_to_regress = data[(data.Time >= start_ablation) & (data.Time <= stop_ablation)] # get the selected ablation period
-        fig = figure(height=500,width=500,title='Ratios',tools='pan,reset,save,wheel_zoom,xwheel_zoom,ywheel_zoom',toolbar_location='above',
-                     x_axis_label='Time (s)',y_axis_label='Isotope Ratios',
-                     y_range=[min(data_to_regress['206Pb/238U'])-0.04,max(data_to_regress['206Pb/238U'])+0.04])
+        if displayframe == 'main':
+            height,width = 350,600
+        else:
+            height,width = 500,500
+        fig = figure(height=height,width=width,title='Isotope Ratios',tools='pan,reset,save,wheel_zoom,xwheel_zoom,ywheel_zoom',toolbar_location='above',
+                     x_axis_label='Time (s)',
+                     y_range=[min(data_to_regress['206Pb/238U'])-min(data_to_regress['206Pb/238U'])*0.1,max(data_to_regress['206Pb/238U'])+max(data_to_regress['206Pb/238U'])*0.1])
         var_cols = ratio_buttons # get the ratios selected by the user. These are used to get the columns from the calculated ratios
         regressions_to_plot = regression_buttons# get the regression type requested by the user
         # get regression parameters and stats for the requested regressions across the specified ablation period
-        regressions,stats = calc_fncs.get_regressions(data_to_regress,regression_buttons,ablation_start_true)
         # plot a line for each selected ratio
         for i,c in zip(var_cols,cycle(color_palette)):
             fig.line(data.Time,data[i],line_width=0.7,legend_label='{}'.format(i),color=c)
-            # print(data[i])
         # plot a line for each selected regression
-        if regressions_to_plot is not None:
-            for i,c in zip(regressions,cycle(color_palette_regressions)):
-                fig.line(data_to_regress.Time,i,line_width=0.5,color=c)
+        if displayframe == 'main':
+            pass
+        else:
+            regressions,stats = calc_fncs.get_regressions(data_to_regress,regression_buttons,ablation_start_true)
+            if regressions_to_plot is not None:
+                for i,c in zip(regressions,cycle(color_palette_regressions)):
+                    fig.line(data_to_regress.Time,i,line_width=0.5,color=c)
         fig.line([start_bckgrnd,start_bckgrnd],[0,1],line_width=0.4,line_dash='dashed',color='black') # vertical dashed line for background start
         fig.line([stop_bckgrnd,stop_bckgrnd],[0,1],line_width=0.4,line_dash='dashed',color='black') # vertical dashed line for background stop
         fig.line([start_ablation,start_ablation],[0,1],line_width=0.4,line_dash='solid',color='black') # vertical solid line for ablation start
@@ -818,7 +765,52 @@ class plots(calc_fncs):
         fig.line([ablation_start_true,ablation_start_true],[0,1],line_width=0.4,line_dash='dotted',color='black') # vertical dotted line for ablation start true
         
         return fig
-
+    
+    
+    def ratio_plot_76(data,
+                      start_bckgrnd,stop_bckgrnd,
+                      start_ablation,stop_ablation,ablation_start_true):
+        """
+        Function for displaying the plot of relavent isotopic ratios.
+        
+        Parameters
+        ----------
+        data : pandas dataframe
+            pandas dataframe of observed data
+        ratio_buttons : list of strings
+            list of strings that hosts the ratios the user requests to plot
+        regression_buttons : list of strings
+            list of strings that hoststhe regressions the user requests
+        start_bckgrnd : integer
+            Integer value input by the user in the background_slider param. This is the lower value on the slider 
+        stop_bckgrnd : integer
+            Integer value input by the user in the background_slider param. This is the higher value on the slider
+        start_ablation : integer
+            Integer value input by the user in the ablation_slider param. This is the lower value on the slider
+        stop_ablation : integer
+            Integer value input by the user in the ablation_slider param. This is the higher value on the slider
+        ablation_start_true : integer
+            integer value input by the user in the ablation_start_true param. Regression is projected back to this value
+    
+        Returns
+        -------
+        fig : bokeh figure
+            plot that shows the relevant isotopic ratios for the entire measurement (background+ablation+washout)
+    
+        """
+        data = calc_fncs.get_ratios(data) # get calculated ratios from the data
+        data_to_regress = data[(data.Time >= start_ablation) & (data.Time <= stop_ablation)] # get the selected ablation period
+        fig = figure(height=350,width=600,title='Isotope Ratios',tools='pan,reset,save,wheel_zoom,xwheel_zoom,ywheel_zoom',toolbar_location='above',
+                     x_axis_label='Time (s)',
+                     y_range=[min(data_to_regress['207Pb/206Pb'])-min(data_to_regress['207Pb/206Pb'])*0.1,max(data_to_regress['207Pb/206Pb'])+max(data_to_regress['207Pb/206Pb'])*0.1])
+        fig.line(data.Time,data['207Pb/206Pb'],line_width=0.7,color='teal')
+        fig.line([start_bckgrnd,start_bckgrnd],[0,1],line_width=0.4,line_dash='dashed',color='black') # vertical dashed line for background start
+        fig.line([stop_bckgrnd,stop_bckgrnd],[0,1],line_width=0.4,line_dash='dashed',color='black') # vertical dashed line for background stop
+        fig.line([start_ablation,start_ablation],[0,1],line_width=0.4,line_dash='solid',color='black') # vertical solid line for ablation start
+        fig.line([stop_ablation,stop_ablation],[0,1],line_width=0.4,line_dash='solid',color='black') # vertical solid line for ablation stop
+        fig.line([ablation_start_true,ablation_start_true],[0,1],line_width=0.4,line_dash='dotted',color='black') # vertical dotted line for ablation start true
+        
+        return fig
     
     def ablation_plot(data_ablation_,bckgrnd_start_input,bckgrund_stop_input,ablation_start_input,ablation_stop_input,
                       ablation_start_true,logdata,analytes_):  
@@ -856,19 +848,29 @@ class plots(calc_fncs):
         else:
             y_type = 'auto'
         # intialize figure
-        fig = figure(height=400,width=1000,title='All Time Resolved Data',tools='pan,reset,save,wheel_zoom,xwheel_zoom,ywheel_zoom',toolbar_location='left',
+        data_in_frame = data_ablation_[(data_ablation_['Time']>=bckgrnd_start_input) & (data_ablation_['Time']<=ablation_stop_input)]
+        max_list = []
+        min_list = []
+        for a in analytes_:
+            max_list.append(max(data_in_frame[a]))
+            min_list.append(min(data_in_frame[a]))
+        
+        min_val = min(min_list)
+        max_val = max(max_list)
+        fig = figure(height=350,width=1200,title='All Time Resolved Data',tools='pan,reset,save,wheel_zoom,xwheel_zoom,ywheel_zoom',toolbar_location='left',
                       y_axis_type=y_type,x_axis_label = 'Time (s)', y_axis_label = 'Intensities (cps)',
-                      x_range=[bckgrnd_start_input-50,ablation_stop_input+50]
+                      x_range=[bckgrnd_start_input-3,ablation_stop_input+10],y_range=[min_val-min_val*0.05,max_val+max_val*0.01]
                       )
         var_cols=analytes_ # reassign anlytes_ variable
         # zip colors and analytes together to get plotted vs time
         for i,c in zip(var_cols,cycle(color_palette)):
             fig.line(data_ablation_.Time,data_ablation_[i],line_width=0.7,legend_label='{}'.format(i),color=c)
-        fig.line([bckgrnd_start_input,bckgrnd_start_input],[0,1e8],line_width=0.4,line_dash='dashed',color='black') # vertical dashed line for background start
-        fig.line([bckgrund_stop_input,bckgrund_stop_input],[0,1e8],line_width=0.4,line_dash='dashed',color='black') # vertical dashed line for background stop
-        fig.line([ablation_start_input,ablation_start_input],[0,1e8],line_width=0.4,line_dash='solid',color='black') # vertical solid line for ablation start
-        fig.line([ablation_stop_input,ablation_stop_input],[0,1e8],line_width=0.4,line_dash='solid',color='black') # vertical solid line for ablation stop
-        fig.line([ablation_start_true,ablation_start_true],[0,1e8],line_width=0.4,line_dash='dotted',color='black') # vertical dotted line for projection location
+        
+        fig.line([bckgrnd_start_input,bckgrnd_start_input],[min_val-min_val*0.05,max_val+max_val*0.01],line_width=0.4,line_dash='dashed',color='black') # vertical dashed line for background start
+        fig.line([bckgrund_stop_input,bckgrund_stop_input],[min_val-min_val*0.05,max_val+max_val*0.01],line_width=0.4,line_dash='dashed',color='black') # vertical dashed line for background stop
+        fig.line([ablation_start_input,ablation_start_input],[min_val-min_val*0.05,max_val+max_val*0.01],line_width=0.4,line_dash='solid',color='black') # vertical solid line for ablation start
+        fig.line([ablation_stop_input,ablation_stop_input],[min_val-min_val*0.05,max_val+max_val*0.01],line_width=0.4,line_dash='solid',color='black') # vertical solid line for ablation stop
+        fig.line([ablation_start_true,ablation_start_true],[min_val-min_val*0.05,max_val+max_val*0.01],line_width=0.4,line_dash='dotted',color='black') # vertical dotted line for projection location
         
         return fig
         
@@ -915,7 +917,7 @@ class plots(calc_fncs):
         return fig
 
     
-    def ellipse_plot(data,power,start_ablation,stop_ablation):
+    def ellipse_plot(data,power,start_ablation,stop_ablation,ablation_start_true,regression_buttons,counts_mode):
         """
         Function that creates ellipsoids from data in the ablation interval and plots them
 
@@ -942,7 +944,7 @@ class plots(calc_fncs):
         data = data.dropna()
         drop_condn = data[(data['206Pb/238U'] == 0) | (data['207Pb/235U'] == 0) | (data['207Pb/206Pb'] == 0)].index # set up a mask to drop observations that are = 0
         data.drop(drop_condn,inplace=True) # drop them
-        ell1p,ell2p = calc_fncs.get_ellipse(data, power) # get the parameters of the confidence ellipsoids
+        ell1p,ell2p = calc_fncs.get_ellipse(data, power,ablation_start_true,regression_buttons,counts_mode) # get the parameters of the confidence ellipsoids
 
         ell1 = Ellipse(xy=ell1p[0],width=ell1p[1],height=ell1p[2],angle=ell1p[3],color='darkkhaki',ec='k',alpha=0.5) # set the parameters into a plotable 'patch'
         ell2 = Ellipse(xy=ell2p[0],width=ell2p[1],height=ell2p[2],angle=ell2p[3],color='darkkhaki',ec='k',alpha=0.5)
@@ -962,10 +964,10 @@ class plots(calc_fncs):
         ax2.set_ylabel('207/206',fontsize=6)
         ax1.tick_params(axis='both',labelsize=5) # set tick parameters on the axes
         ax2.tick_params(axis='both',labelsize=5)
-        ax1.set_xlim(ell1p[0][0]-ell1p[1]/1.5,ell1p[0][0]+ell1p[1]/1.5) # set reasonable x and y limits based on the size of hte patch
-        ax1.set_ylim(ell1p[0][1]-ell1p[2]/1.5,ell1p[0][1]+ell1p[2]/1.5)
-        ax2.set_xlim(ell2p[0][0]-ell2p[1]/1.5,ell2p[0][0]+ell2p[1]/1.5)
-        ax2.set_ylim(ell2p[0][1]-ell2p[2]/1.5,ell2p[0][1]+ell2p[2]/1.5)
+        # ax1.set_xlim(ell1p[0][0]-ell1p[1]/1.5,ell1p[0][0]+ell1p[1]/1.5) # set reasonable x and y limits based on the size of hte patch
+        # ax1.set_ylim(ell1p[0][1]-ell1p[2]/1.5,ell1p[0][1]+ell1p[2]/1.5)
+        # ax2.set_xlim(ell2p[0][0]-ell2p[1]/1.5,ell2p[0][0]+ell2p[1]/1.5)
+        # ax2.set_ylim(ell2p[0][1]-ell2p[2]/1.5,ell2p[0][1]+ell2p[2]/1.5)
         
         fig1.tight_layout() # get it right keep it tight
         fig2.tight_layout()
@@ -974,18 +976,16 @@ class plots(calc_fncs):
 
     
 
+# %%
 class make_plots(param.Parameterized):
     """ class that parameterizes inputs and sends them to the above functions to be rendered in a GUI"""
-    update_output_button = param.Action(lambda x: x.add_output_data(),label='Approve Interval') # Button that triggers function to add output data
+    update_output_button = param.Action(lambda x: x.evaluate_output_data(),label='Evaluate Interval') # Button that triggers function to add output data
     export_data_button = param.Action(lambda x: x.export_data(),label='DDDT!') # button that triggers function to export the reduced data
     jump_forward_button = param.Action(lambda x: x.jump_sliders(),label='Jump Sliders') # button that triggers sliders to jump forward
 
+    lock_ablation_start_true = param.Boolean(True,label='Lock Back Projection')
     ablation_start_true = param.Number(30.9) # parameterize a number that defines where regressions get projected back to for t0 intercept
-    ablation_start = param.Number(31.1,bounds=(0,7500)) # number that defines where ablation intervals starts
-    ablation_end = param.Number(50.3,bounds=(0,7500)) # number that defines where ablation ends
-    background_start = param.Number(10.2,bounds=(0,7500)) # number that defines where background starts
-    background_end = param.Number(28.3,bounds=(0,7500)) # number that defines where background ends
-    jump_time = param.Number(10) # number that defines how far to jump sliders when function is triggered
+    jump_time = param.Number(53) # number that defines how far to jump sliders when function is triggered
     
     # set up list of clickable buttons to choose which ratios gets plotted
     ratio_buttons = param.ListSelector(default=['206Pb/238U'], objects=['206Pb/238U','207Pb/235U','208Pb/232Th','207Pb/206Pb','238U/235U','206Pb/204Pb'])
@@ -995,7 +995,7 @@ class make_plots(param.Parameterized):
     logcountsdata = param.Boolean(False,label='Log Intensities') # set up boolean button to choose whether or not 
     analytes_ = param.ListSelector(default=[],objects=[]) # set up empty list to be populated with analytes in order to choose which gets plotted
     # list of buttons to choose whether to reduce using total counts or means + regression
-    counts_mode = param.Selector(default='Means & Regression',objects=['Total Counts','Means & Regression']) 
+    counts_mode = param.Selector(default='Total Counts',objects=['Total Counts','Means & Regression']) 
     # integration time variable. Has a default but gets reassigned based on Nu output file
     integration_time = param.Number(default=0.01)
     # boolean button to choose whether or not to calculate confidence ellipsoids
@@ -1008,8 +1008,11 @@ class make_plots(param.Parameterized):
     output_data_ellipse = param.DataFrame(precedence=-1) # initialize dataframe to be populated with ellipsoid output data
     
     accept_array_button = param.Action(lambda x: x.close_modal_setdata(),label='Accept Detector Array') # button that triggers the collector block anaalyte assignments to be accepted
-    accept_samplename_button = param.Action(lambda x: x.send_reduction(),label='Accept Sample Name') # button that triggers sample name to be accepted and ablation to be reduced
-    
+    accept_interval_button = param.Action(lambda x: x.send_reduction(),label='Accept Interval') # button that triggers sample name to be accepted and ablation to be reduced
+    ablation_start = param.Number(51.1,bounds=(0,7500),softbounds=(50,90),step=0.1) # number that defines where ablation intervals starts
+    ablation_end = param.Number(76.3,bounds=(0,7500),step=0.1) # number that defines where ablation ends
+    background_start = param.Number(31.2,bounds=(0,7500),step=0.1) # number that defines where background starts
+    background_end = param.Number(46.3,bounds=(0,7500),step=0.1) # number that defines where background ends
     
         
     def __init__(self,**params):
@@ -1017,11 +1020,14 @@ class make_plots(param.Parameterized):
         self.file_input_widget = pn.Param(self.param.input_data)
         self.output_data_widget = pn.Param(self.param.output_data)
         self.output_data_ellipse_widget = pn.Param(self.param.output_data_ellipse)
-        self.widgets = pn.Param(self,parameters=['update_output_button','export_data_button',
-                                                 'ablation_start_true','jump_time','logcountsdata','analytes_',
+        self.widgets = pn.Param(self,parameters=['update_output_button','export_data_button','lock_ablation_start_true',
+                                                 'ablation_start_true','jump_time',
+                                                 'logcountsdata','analytes_',
                                                  'ratio_buttons','regression_buttons','counts_mode',
                                                  'ellipsemode_selector','power',
-                                                 'integration_time','file_path'])
+                                                 'integration_time','file_path',
+                                                 'ablation_start','ablation_end','background_start','background_end',
+                                                 ])
     
     @pn.depends('file_path',watch=True)
     def _uploadfile(self):
@@ -1054,9 +1060,23 @@ class make_plots(param.Parameterized):
             fastgrid_layout.modal[-1].append(pn.Column(buttons_))
             fastgrid_layout.open_modal()
         
+    @pn.depends('ablation_start_true','background_start','background_end','ablation_start','ablation_end','jump_time','lock_ablation_start_true')
+    def jump_sliders(self,event=None, watch=True):
+        """
+        Function that advances ('jumps') sliders forward based on the jump time
+
+        """
+        if self.lock_ablation_start_true == True:
+            self.ablation_start_true = self.ablation_start+self.jump_time
+        else:
+            self.ablation_start_true = self.ablation_start_true+self.jump_time
+        self.ablation_end = self.ablation_end+self.jump_time
+        self.ablation_start = self.ablation_start+self.jump_time
+        self.background_end = self.background_end+self.jump_time
+        self.background_start = self.background_start+self.jump_time
         
         
-    @pn.depends('input_data','background_start','background_end','ablation_start','ablation_end','ablation_start_true','analytes_')
+    @pn.depends('input_data','background_start','background_end','ablation_start','ablation_end','ablation_start_true','analytes_','lock_ablation_start_true')
     def call_ablation_plot(self):
         """
         Function that calls and places the plot with time resolved analytes into a bokeh pane
@@ -1067,6 +1087,8 @@ class make_plots(param.Parameterized):
             hosts figure
 
         """
+        if self.lock_ablation_start_true == True:
+            self.ablation_start_true = self.ablation_start
         if self.output_data is not None:
             data_toplot = self.input_data
             return pn.pane.Bokeh(row(plots.ablation_plot(data_toplot,self.background_start,self.background_end,
@@ -1074,8 +1096,7 @@ class make_plots(param.Parameterized):
                                                          self.logcountsdata,self.analytes_)))
     
         
-    @pn.depends('input_data','ratio_buttons','regression_buttons',
-                'background_start','background_end','ablation_start','ablation_end','ablation_start_true')
+    @pn.depends('input_data','ratio_buttons','regression_buttons','background_start','background_end','ablation_start','ablation_end','ablation_start_true','lock_ablation_start_true')
     def call_ratio_plot(self):
         """
         Function that calls and places the plot with time resolved ratios into a bokeh pane
@@ -1087,15 +1108,16 @@ class make_plots(param.Parameterized):
 
         """
         if self.output_data is not None:
+            if self.lock_ablation_start_true == True:
+                self.ablation_start_true = self.ablation_start
             data_toplot = self.input_data[(self.input_data['Time'] >= self.background_start-3) & (self.input_data['Time'] <= self.ablation_end+10)]
             return pn.pane.Bokeh(row(plots.ratio_plot(data_toplot,self.ratio_buttons,self.regression_buttons,self.background_start,self.background_end,
-                                                      self.ablation_start,self.ablation_end,self.ablation_start_true)))
+                                                      self.ablation_start,self.ablation_end,self.ablation_start_true,'main')))
         
-
-    @pn.depends('input_data','regression_buttons','ablation_start','ablation_end','ablation_start_true')
-    def call_residuals_plot(self):   
+    @pn.depends('input_data','background_start','background_end','ablation_start','ablation_end','ablation_start_true','lock_ablation_start_true')
+    def call_ratio_plot76(self):
         """
-        Function that calls and places the plot with the regression residuals into a bokeh pane
+        Function that calls and places the plot with time resolved ratios into a bokeh pane
 
         Returns
         -------
@@ -1103,53 +1125,15 @@ class make_plots(param.Parameterized):
             hosts figure
 
         """
-        if self.output_data is not None:
-            data_toplot = self.input_data[(self.input_data['Time'] >= self.ablation_start) & (self.input_data['Time'] <= self.ablation_end)]
-            return pn.pane.Bokeh(row(plots.residuals_plot(data_toplot,self.regression_buttons,self.ablation_start,self.ablation_end,self.ablation_start_true)))
             
-    @pn.depends('input_data','power','ablation_start','ablation_end')
-    def call_ellipse_plot(self):
-        """
-        Function that calls and places plot with the ellipsoids into a bokeh 'tab' figure
-
-        Returns
-        -------
-        tabs : TW_ell and Weth_ell
-            Tabs host ellipsoid corresponding to Tera-Waserburg and Wetherhill, respectively
-
-        """
         if self.output_data is not None:
-            if self.ellipsemode_selector is True:
-                data_toplot = self.input_data[(self.input_data['Time'] >= self.ablation_start) & (self.input_data['Time'] <= self.ablation_end)]
-                Weth_ell,TW_ell = plots.ellipse_plot(data_toplot, self.power,self.ablation_start,self.ablation_end)
-                tabs = pn.Tabs(('TW',TW_ell),('Weth.',Weth_ell),dynamic=True)
-                return tabs
-            else:
-                pass
+            if self.lock_ablation_start_true == True:
+                self.ablation_start_true = self.ablation_start
+            data_toplot = self.input_data[(self.input_data['Time'] >= self.background_start-3) & (self.input_data['Time'] <= self.ablation_end+10)]
+            return pn.pane.Bokeh(row(plots.ratio_plot_76(data_toplot,
+                                                         self.background_start,self.background_end,
+                                                         self.ablation_start,self.ablation_end,self.ablation_start_true)))
 
-    
-    @pn.depends('input_data','regression_buttons','ablation_start','ablation_end','ablation_start_true')
-    def get_regression_stats(self):
-        """
-        Function that calls regression statistics and places them onto the gui
-
-        Returns
-        -------
-        stats_markdown : markdown objects in a panel column
-            Has the r-squared, standard errors, etc, associated with the regressions.
-
-        """
-        if self.output_data is not None:
-            data_toanalyze = self.input_data[(self.input_data['Time'] >= self.ablation_start) & (self.input_data['Time'] <= self.ablation_end)]
-            data_toanalyze = plots.get_ratios(data_toanalyze)
-            data_toanalyze = data_toanalyze[(data_toanalyze.Time >= self.ablation_start) & (data_toanalyze.Time <= self.ablation_end)]
-            regressions,stats = calc_fncs.get_regressions(data_toanalyze,self.regression_buttons,self.ablation_start_true)
-            r2_1 = pn.pane.Markdown('$$R^{2}$$ = '+str(round(stats[0],3)))
-            r2_exp = pn.pane.Markdown('$$R^{2}_{exp}$$ = '+str(round(stats[2],3)))
-            SE_1stper = pn.pane.Markdown('$$1^{st} Order SE \%$$ = '+str(round(stats[3],3)))
-            SE_expper = pn.pane.Markdown('$$Exp SE \%$$ = '+str(round(stats[5],3)))
-            stats_markdown = pn.Column(r2_1,r2_exp,SE_1stper,SE_expper)
-            return stats_markdown
         
 
     @pn.depends('output_data',watch=True)
@@ -1169,7 +1153,11 @@ class make_plots(param.Parameterized):
             self.output_data_widget.heightpolicy = 'Fixed'
             return pn.widgets.Tabulator(self.output_data_widget,width=600) # use 600 for large screen, 100-150 for small screen 
     
-    def add_output_data(self, event=None):
+    
+    @pn.depends('input_data','ratio_buttons','regression_buttons',
+                'background_start','background_end','ablation_start','ablation_end','ablation_start_true','lock_ablation_start_true',
+                'power','counts_mode')
+    def evaluate_output_data(self, event=None):
         """
         Function that clears any residuals input from uploading data or previously approved analyses, then generates fresh ones in a modal
 
@@ -1178,42 +1166,49 @@ class make_plots(param.Parameterized):
         event : open panel modal
 
         """
+        
+        if self.ablation_start_true == True:
+            self.ablation_start_true = self.ablation_start
+            
+        data_ratio_plot = self.input_data[(self.input_data['Time'] >= self.background_start-5) & (self.input_data['Time'] <= self.ablation_end+10)]
+        ratioplot_pane = pn.pane.Bokeh(row(plots.ratio_plot(data_ratio_plot,self.ratio_buttons,self.regression_buttons,self.background_start,self.background_end,
+                                                  self.ablation_start,self.ablation_end,self.ablation_start_true,'modal')))
+        
+        data_residuals_plot = self.input_data[(self.input_data['Time'] >= self.ablation_start) & (self.input_data['Time'] <= self.ablation_end)]
+        residuals_plot_pane = pn.pane.Bokeh(row(plots.residuals_plot(data_residuals_plot,self.regression_buttons,self.ablation_start,self.ablation_end,self.ablation_start_true)))
+        
+        Weth_ell,TW_ell = plots.ellipse_plot(data_residuals_plot, self.power, self.ablation_start, self.ablation_end, self.ablation_start_true, self.regression_buttons,self.counts_mode)
+        ellipse_tabs = pn.Tabs(('TW',TW_ell),('Weth.',Weth_ell),dynamic=True)
+        
+        
+        datastats = calc_fncs.get_ratios(data_residuals_plot)
+        datastats = datastats.reset_index(drop=True)
+        regressions,stats = calc_fncs.get_regressions(datastats,self.regression_buttons,self.ablation_start_true)
+        divider1 = pn.pane.Markdown('206/238 Reg. Stats:')
+        r2_1 = pn.pane.Markdown('$$R^{2}$$ = '+str(round(stats[0],3)))
+        r2_exp = pn.pane.Markdown('$$R^{2}_{exp}$$ = '+str(round(stats[1],3)))
+        SE_1stper = pn.pane.Markdown('$$1^{st} Order SE %% $$ = '+str(round(stats[2],3)))
+        SE_expper = pn.pane.Markdown('$$Exp SE %% $$ = '+str(round(stats[3],3)))
+        divider2 = pn.pane.Markdown('207/235 Reg. Stats:')
+        SE_1stper_207 = pn.pane.Markdown('$$1^{st} Order SE %% $$ = '+str(round(stats[4],3)))
+        SE_expper_207 = pn.pane.Markdown('$$Exp SE %% $$ = '+str(round(stats[5],3)))
+         
+        stats_markdown = pn.Row(pn.Column(divider1,r2_1,r2_exp,SE_1stper,SE_expper),pn.Column(divider2,SE_1stper_207,SE_expper_207))
+        
+        
         fastgrid_layout.modal[0].clear()
         fastgrid_layout.modal[1].clear()
         fastgrid_layout.modal[2].clear()
         fastgrid_layout.modal[3].clear()
         fastgrid_layout.modal[4].clear()
-        fastgrid_layout.modal[0].append(pn.widgets.TextInput(placeholder='Enter Sample Name'))
-        fastgrid_layout.modal[1].append(buttons_sample)
+        
+        fastgrid_layout.modal[0].append(buttons_sample)
+        fastgrid_layout.modal[1].append(pn.widgets.TextInput(placeholder='Enter Sample Name'))
+        fastgrid_layout.modal[2].append(pn.Row(ratioplot_pane,pn.Spacer(width=50, height=500),residuals_plot_pane))
+        fastgrid_layout.modal[3].append(pn.Row(ellipse_tabs,pn.Spacer(width=50, height=500),stats_markdown))
+        
         fastgrid_layout.open_modal()
     
-    @pn.depends('ablation_start_true','background_start','background_end','ablation_start','ablation_end','jump_time')
-    def jump_sliders(self,event=None):
-        """
-        Function that advances ('jumps') sliders forward based on the jump time
-
-        """
-        self.ablation_start_true = self.ablation_start_true+self.jump_time
-        self.ablation_end = self.ablation_end+self.jump_time
-        self.ablation_start = self.ablation_start+self.jump_time
-        self.background_end = self.background_end+self.jump_time
-        self.background_start = self.background_start+self.jump_time
-    
-    @pn.depends('output_data','output_data_ellipse')
-    def export_data(self,event=None):
-        """
-        Function that exports the reduced data in an excel file
-
-        Parameters
-        ----------
-        event : pd.to_excel
-
-        """
-        self.output_data.to_excel('output_lasertramZ.xlsx')
-        if self.ellipsemode_selector is True and self.output_data_ellipse is not None:
-            self.output_data_ellipse.to_excel('output_CEllipse_lasertramZ.xlsx')
-        else:
-            pass
         
     def send_reduction(self,event=None):
         """
@@ -1221,23 +1216,23 @@ class make_plots(param.Parameterized):
 
         """
         new_index = 0
-        sample_name = fastgrid_layout.modal[0][0].value
+        sample_name = fastgrid_layout.modal[1][0].value
         data_tosend = self.input_data[(self.input_data['Time'] >= self.background_start) & (self.input_data['Time'] <= self.ablation_end)] # filter data for background through ablation interval
+        if self.lock_ablation_start_true == True:
+            self.ablation_start_true = self.ablation_start
         # get the approved data by calling functions
-        data_approved,ellipse_datapproved = calc_fncs.get_approved(data_tosend,self.background_start,self.background_end,self.ablation_start,self.ablation_end,
-                                     self.ablation_start_true,self.regression_buttons,self.ellipsemode_selector,
-                                     self.counts_mode,self.integration_time,sample_name,new_index)
+        data_approved = calc_fncs.get_approved(data_tosend,self.background_start,self.background_end,self.ablation_start,self.ablation_end,
+                                                                   self.ablation_start_true,self.regression_buttons,self.ellipsemode_selector,
+                                                                   self.counts_mode,self.integration_time,sample_name,new_index,self.power)
         # if there is no data in the first column (assuming you can see 238U) assign the first sample measurement as -1 and make this global measurement (measurmentindex) 1
         # otherwise, add 1 to the last global measurement number and to the last sample measurement number
         if self.output_data.loc[0,'238U'] <= 0.0:
             updated_sample_name = sample_name+str('-1')
             data_approved['SampleLabel'] = updated_sample_name
-            ellipse_datapproved['SampleLabel'] = updated_sample_name
             self.output_data = data_approved
         else:
             update_index = self.output_data['measurementindex'].iloc[-1] + 1
             data_approved['measurementindex'] = update_index
-            ellipse_datapproved['measurementindex'] = update_index
             if self.output_data['SampleLabel'].str.contains(sample_name).any():
                 duplicates = self.output_data[self.output_data['SampleLabel'].str.contains(sample_name)]
                 added_amount = int(duplicates['SampleLabel'].iloc[-1].rsplit('-')[-1]) + 1
@@ -1245,19 +1240,10 @@ class make_plots(param.Parameterized):
             else:
                 updated_sample_name = sample_name+str('-1')
             data_approved['SampleLabel'] = updated_sample_name
-            ellipse_datapproved['SampleLabel'] = updated_sample_name
             self.output_data = pd.concat([self.output_data,data_approved],ignore_index=True)
-        if self.ellipsemode_selector is True:
-            if self.output_data_ellipse is None:
-                self.output_data_ellipse = ellipse_datapproved
-            else:
-                self.output_data_ellipse = pd.concat([self.output_data_ellipse,ellipse_datapproved],ignore_index=True)
-        else:
-            pass
     
         fastgrid_layout.close_modal()
  
-        
         
     @pn.depends('analytes_')
     def close_modal_setdata(self,event=None):
@@ -1311,14 +1297,33 @@ class make_plots(param.Parameterized):
             pass
         fastgrid_layout.close_modal()
         
+        
+    @pn.depends('output_data','output_data_ellipse')
+    def export_data(self,event=None):
+        """
+        Function that exports the reduced data in an excel file
+
+        Parameters
+        ----------
+        event : pd.to_excel
+
+        """
+        self.output_data.to_excel('output_lasertramZ.xlsx')
+        if self.ellipsemode_selector is True and self.output_data_ellipse is not None:
+            self.output_data_ellipse.to_excel('output_CEllipse_lasertramZ.xlsx')
+        else:
+            pass
+
+
+# %%
 callapp = make_plots(name='Reduce Ablation Data')
 
 pn.extension('tabulator','mathjax')
 
 buttons_=pn.WidgetBox(pn.Param(callapp.param.accept_array_button,
                                widgets={'accept_array_button': pn.widgets.Button(name='Accept Detector Array',button_type='success')}))
-buttons_sample=pn.WidgetBox(pn.Param(callapp.param.accept_samplename_button,
-                               widgets={'accept_samplename_button': pn.widgets.Button(name='Accept Sample Name',button_type='success')}))
+buttons_sample=pn.WidgetBox(pn.Param(callapp.param.accept_interval_button,
+                               widgets={'accept_interval_button': pn.widgets.Button(name='Accept Sample Name',button_type='success')}))
 
 
 widgets={'ratio_buttons': pn.widgets.CheckBoxGroup,
@@ -1326,14 +1331,15 @@ widgets={'ratio_buttons': pn.widgets.CheckBoxGroup,
          'counts_mode': pn.widgets.RadioButtonGroup,
          'export_data_button': pn.widgets.Button(name='DDDT!',button_type='success'),
          'analytes_': pn.widgets.CheckBoxGroup,
-         'ablation_start': pn.widgets.EditableFloatSlider(start=0,end=7500,value=(31.1),step=0.1,name='Ablation Start'),
-         'ablation_end': pn.widgets.EditableFloatSlider(start=0,end=7500,value=(50.1),step=0.1,name='Ablation End'),
-         'background_start': pn.widgets.EditableFloatSlider(start=0,end=7500,value=(10.2),step=0.1,name='Background Start'),
-         'background_end': pn.widgets.EditableFloatSlider(start=0,end=7500,value=(28.2),step=0.1,name='Background End')
+         'ablation_start': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(51.1),step=0.1,name='Ablation Start'),
+         'ablation_end': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(76.3),step=0.1,name='Ablation End'),
+         'background_start': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(31.2),step=0.1,name='Background Start'),
+         'background_end': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(46.3),step=0.1,name='Background End')
          }
 
-fastgrid_layout = pn.template.VanillaTemplate(title='LaserTRAMZ: LA-ICP-MC-MS',
-                                                sidebar=pn.Column(pn.WidgetBox(pn.Param(callapp.param,widgets=widgets))))
+    
+fastgrid_layout = pn.template.VanillaTemplate(title='LaserTRAMZ: LA-MC-ICP-MS',
+                                                sidebar=pn.Column(pn.WidgetBox(pn.Param(callapp.param,widgets=widgets))),sidebar_width=380)
 
 fastgrid_layout.modal.append(pn.Row())
 fastgrid_layout.modal.append(pn.Row())
@@ -1341,16 +1347,18 @@ fastgrid_layout.modal.append(pn.Row())
 fastgrid_layout.modal.append(pn.Row())
 fastgrid_layout.modal.append(pn.Row())
 
-fastgrid_layout.main.append(pn.Column(pn.Row(callapp.call_ratio_plot,callapp.call_residuals_plot)))
-fastgrid_layout.main.append(pn.Column(callapp.call_ablation_plot)) # for vanilla
-fastgrid_layout.main.append(pn.Column(pn.Row(callapp.call_ellipse_plot,callapp.get_regression_stats))) 
+fastgrid_layout.main.append(pn.Row(pn.WidgetBox(pn.Param(callapp.param.ablation_start,widgets={'ablation_start': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(51.1),step=1,name='Ablation Start',width=1300,height=20)},),
+                                                pn.Param(callapp.param.ablation_end,widgets={'ablation_end': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(76.3),step=1,name='Ablation End',width=1300,height=20),}),
+                                                pn.Param(callapp.param.background_start,widgets={'background_start': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(31.2),step=1,name='Background Start',width=1300,height=20),}),
+                                                pn.Param(callapp.param.background_end,widgets={'background_end': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(46.3),step=1,name='Background End',width=1300,height=20)}),
+                                                width=1400,height=180
+                                                )
+                                   )
+                            ) # for vanilla
+fastgrid_layout.main.append(pn.Column(callapp.call_ablation_plot,pn.Row(callapp.call_ratio_plot,callapp.call_ratio_plot76))) # for vanilla
 fastgrid_layout.main.append(pn.Column(callapp._update_output_widget))
 
 fastgrid_layout.show();
-
-
-
-
 
 
     
