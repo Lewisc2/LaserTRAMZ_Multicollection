@@ -6,6 +6,9 @@ ____________
 ## Purpose
 #### Open-source software built to reduce and handle time-resolved U-Pb data collected on a Nu multicollector ICP-MS. Two primary components are in this software. The first reduces the raw data. The second takes the reduced data and calculates ages.
 ____________
+## Reference flowchart for repeat users that don't necessarily need to read the details below
+[LaserTRAMZ_Reduction_Flowchart.pdf](https://github.com/user-attachments/files/19507647/LaserTRAMZ_Reduction_Flowchart.pdf)
+____________
 ## Data Input Format
 **Part One**
 #### Convert the .csv file output from the MS into a .xlsx file. It should look like this:
@@ -94,6 +97,14 @@ ____________
 ## Age and Error Calculation Additional Notes
 #### Age calculations largely follow prior authors (Kosler and Sylvester, 2003; Pullen et al., 2018; Horstwood et al. (2016)). Decay constants are from Jaffey et al. (1971) (238U / 235U), Cheng et al. (2000) (230Th), and Le Roux and Glendenin (1963) (232Th) following the recommendations of Steiger and Jager (1977). Errors on decay constants are from those authors or, for U, include the uncertainty for counting statistics (238U: 0.16%, 235U: 0.21%; Mattinson (1987)) Data points are plotted on Tera-Wasserburg concordia and projected down from common Pb. If you have no common Pb input then the Stacey-Kramers model is assumed. Error propagation largely follows the community accepted protocol (Horstwood et al., 2016); although systematic uncertainty from the ID-TIMS determinations are included. There is also no full external error, as we don't know what the uncertainty for standard values is for your lab. All necessary error contributions are in the output file (see below). 
 #### Mass bias calculations use the exponential fractionation law. Pb-Pb ratios in NIST are from Woodhead and Hergt (2001). 238U/235U ratios in NIST are from Duffin et al. (2015).
+#### The following standards have published concentrations for U and Th. Note Plesovice is not included due to the known heterogeneity (Slama et al., 2008). Choosing a standard(s) that does not have published concentrations and selecting an option that includes that (those) standard(s) to estimate concentrations will result in erroneous concentration estimations for unknowns (values set to 1e-7 in the script to avoid divide by zero errors).
+* Temora
+* Fish Canyon
+* R33
+* 91500
+* FC1
+* Oracle
+* OG1
 ____________
 ## Final File Output Information
 #### Outputting the data will drop a file in the LaserTRAMZ folder. Output information is fairly routine for the 'Simple' output format. Errors incldue all sources of error. More detail below.
