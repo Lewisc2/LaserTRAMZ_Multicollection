@@ -163,6 +163,8 @@ class calc_fncs:
     def threesig_outlierremoval(data):
         whileloopdata = data.reset_index(drop=True)
         ratios = ['206Pb/238U','207Pb/235U','207Pb/206Pb','238U/235U','238U/206Pb','208Pb/232Th','238U/232Th','206Pb/204Pb']
+        max_iter = 1000
+        loopiter = 0
             
         for r in ratios:
             threesig = 3*whileloopdata[r].std()
@@ -172,6 +174,9 @@ class calc_fncs:
             while loopvariable == True:
                 # break the loop if the regression fails and the array is nan of length 1
                 if len(whileloopdata)<=2:
+                    break
+                elif loopiter >= max_iter:
+                    print('Hit Max Iterations for despike')
                     break
                 else:
                     for i in range(1,len(whileloopdata)-1):
@@ -189,6 +194,8 @@ class calc_fncs:
                         trigger = False # reset trigger variable in prep for next loop
                     else:
                         loopvariable = False
+                        print('Exited Loop After despike')
+                loopiter = loopiter+1
                         
         return whileloopdata
     
