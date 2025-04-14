@@ -1016,10 +1016,10 @@ class make_plots(param.Parameterized):
     
     accept_array_button = param.Action(lambda x: x.close_modal_setdata(),label='Accept Detector Array') # button that triggers the collector block anaalyte assignments to be accepted
     accept_interval_button = param.Action(lambda x: x.send_reduction(),label='Accept Interval') # button that triggers sample name to be accepted and ablation to be reduced
-    ablation_start = param.Number(51.1,bounds=(0,7500),softbounds=(50,90),step=0.1) # number that defines where ablation intervals starts
-    ablation_end = param.Number(76.3,bounds=(0,7500),step=0.1) # number that defines where ablation ends
-    background_start = param.Number(31.2,bounds=(0,7500),step=0.1) # number that defines where background starts
-    background_end = param.Number(46.3,bounds=(0,7500),step=0.1) # number that defines where background ends
+    ablation_start = param.Number(51.1,bounds=(0,8200),softbounds=(50,90),step=0.1) # number that defines where ablation intervals starts
+    ablation_end = param.Number(76.3,bounds=(0,8200),step=0.1) # number that defines where ablation ends
+    background_start = param.Number(31.2,bounds=(0,8200),step=0.1) # number that defines where background starts
+    background_end = param.Number(46.3,bounds=(0,8200),step=0.1) # number that defines where background ends
     
         
     def __init__(self,**params):

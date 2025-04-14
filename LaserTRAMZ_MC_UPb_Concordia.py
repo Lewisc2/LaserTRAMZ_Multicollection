@@ -856,7 +856,7 @@ class calc_fncs:
     
     
     def get_pt_ages(df, std, std_txt, df_secondary, secondary_std_RMRatioUnc, ThU_zrn, ThU_magma, Pb_Th_std_crct_selector, regression_selector, DThU_treatment, common_207206_input,common_207206_error,
-                    drift_treatment,drift_nearest,calc_RM_ratio_errors,callingmethod):
+                    drift_treatment,drift_nearest,calc_RM_ratio_errors,callingmethod, mass_bias_pb, NIST_df):
         """
         Function that calculates ages of unknowns
 
@@ -933,7 +933,7 @@ class calc_fncs:
                             pass
                         else:
                             if calc_RM_ratio_errors == 'Secondary Age':
-                                epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(nearest_secondary_stds, regression_selector, calc_RM_ratio_errors)
+                                epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(nearest_secondary_stds, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df)
                                 if epi > 0.001:
                                     df.loc[i,'SE% 207Pb/206Pb'] = (df.loc[i,'SE 207Pb/206Pb'] + epi*df.loc[i,'SE 207Pb/206Pb'])/df.loc[i,'207Pb/206Pb c']*100
                                     df.loc[i,'206Pb/238U Reg. err'] = df.loc[i,'206Pb/238U Reg. err'] + epi*df.loc[i,'206Pb/238U Reg. err']
@@ -943,7 +943,7 @@ class calc_fncs:
                                 df.loc[i,'Epsilon 207Pb/206Pb'] = epi
                                 df.loc[i,'Epsilon 206Pb/238U'] = epi
                             elif calc_RM_ratio_errors == 'Secondary Normalized Ratios':
-                                epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(nearest_secondary_stds, regression_selector, calc_RM_ratio_errors)
+                                epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(nearest_secondary_stds, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df)
                                 if epipb207pb206 > 0.001:
                                     df.loc[i,'SE% 207Pb/206Pb'] = (df.loc[i,'SE 207Pb/206Pb'] + epipb207pb206*df.loc[i,'SE 207Pb/206Pb'])/df.loc[i,'207Pb/206Pb c']*100
                                 else:
@@ -956,7 +956,7 @@ class calc_fncs:
                                 df.loc[i,'Epsilon 207Pb/206Pb'] = epipb207pb206
                                 df.loc[i,'Epsilon 206Pb/238U'] = epipb206u238
                             elif calc_RM_ratio_errors == 'Primary Raw Ratios':
-                                epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(std, regression_selector, calc_RM_ratio_errors)
+                                epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(std, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df)
                                 if epipb207pb206 > 0.001:
                                     df.loc[i,'SE% 207Pb/206Pb'] = (df.loc[i,'SE 207Pb/206Pb'] + epipb207pb206*df.loc[i,'SE 207Pb/206Pb'])/df.loc[i,'207Pb/206Pb c']*100
                                 else:
@@ -991,7 +991,7 @@ class calc_fncs:
                     pass
                 else:
                     if calc_RM_ratio_errors == 'Secondary Age':
-                        epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(df_secondary, regression_selector, calc_RM_ratio_errors)
+                        epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(df_secondary, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df)
                         if epi > 0.001:
                             df['SE% 207Pb/206Pb'] = (df['SE 207Pb/206Pb'] + epi*df['SE 207Pb/206Pb'])/df['207Pb/206Pb c']*100
                             df['206Pb/238U Reg. err'] = df['206Pb/238U Reg. err'] + epi*df['206Pb/238U Reg. err']
@@ -1001,7 +1001,7 @@ class calc_fncs:
                         df['Epsilon 207Pb/206Pb'] = epi
                         df['Epsilon 206Pb/238U'] = epi
                     elif calc_RM_ratio_errors == 'Secondary Normalized Ratios':
-                        epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(df_secondary, regression_selector, calc_RM_ratio_errors)
+                        epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(df_secondary, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df)
                         if epipb207pb206 > 0.001:
                             df['SE% 207Pb/206Pb'] = (df['SE 207Pb/206Pb'] + epipb207pb206*df['SE 207Pb/206Pb'])/df['207Pb/206Pb c']*100
                         else:
@@ -1014,7 +1014,7 @@ class calc_fncs:
                         df['Epsilon 207Pb/206Pb'] = epipb207pb206
                         df['Epsilon 206Pb/238U'] = epipb206u238
                     elif calc_RM_ratio_errors == 'Primary Raw Ratios':
-                        epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(std, regression_selector, calc_RM_ratio_errors)
+                        epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(std, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df)
                         if epipb207pb206 > 0.001:
                             df['SE% 207Pb/206Pb'] = (df['SE 207Pb/206Pb'] + epipb207pb206*df['SE 207Pb/206Pb'])/df['207Pb/206Pb c']*100
                         else:
@@ -1180,7 +1180,7 @@ class calc_fncs:
         
         
 
-    def correct_sample_ages(df, std, std_txt, df_secondary, secondary_std_RMRatioUnc, ThU_zrn, ThU_magma, Pb_Th_std_crct_selector, regression_selector, DThU_treatment, common_207206_input,common_207206_error,drift_treatment,drift_nearest,calc_RM_ratio_errors):
+    def correct_sample_ages(df, std, std_txt, df_secondary, secondary_std_RMRatioUnc, ThU_zrn, ThU_magma, Pb_Th_std_crct_selector, regression_selector, DThU_treatment, common_207206_input,common_207206_error,drift_treatment,drift_nearest,calc_RM_ratio_errors, mass_bias_pb, NIST_df):
         """
         Function used to correct send unknown samples to the methods that get the fully corrected ages. 
         Essentially a funnel for handling the different data types in the unkown points estimates, unknown ellipsoids, and standard points estimates / ellipsoids
@@ -1222,7 +1222,7 @@ class calc_fncs:
         print('METHOD CALLING GET PT AGES: ')
         print(str(callingmethod))
         pt_ages = calc_fncs.get_pt_ages(df, std, std_txt, df_secondary, secondary_std_RMRatioUnc, ThU_zrn, ThU_magma, Pb_Th_std_crct_selector, regression_selector, 
-                                        DThU_treatment, common_207206_input,common_207206_error,drift_treatment,drift_nearest,calc_RM_ratio_errors,callingmethod)
+                                        DThU_treatment, common_207206_input,common_207206_error,drift_treatment,drift_nearest,calc_RM_ratio_errors,callingmethod, mass_bias_pb, NIST_df)
         
         
         return pt_ages
@@ -1340,10 +1340,11 @@ class calc_fncs:
         return wtd_avg,wtd_SE
     
     
-    def calc_RM_ratio_errors_iterate(df, regression_selector, calc_RM_ratio_errors):
+    def calc_RM_ratio_errors_iterate(df, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df):
         df = df.reset_index(drop=True)
         added_error_percent = 0.001
         
+        # note that the excess variance for 'Secondary Age' does not include excess variance calcs on NIST glass if requested. Relies solely on zircon data
         if calc_RM_ratio_errors == 'Secondary Age':
             mswd_new = calc_fncs.mswd(df,'206Pb/238U Age','206Pb/238U Age 1s (meas)')
             
@@ -1358,12 +1359,11 @@ class calc_fncs:
             epi = added_error_percent
             
             return epi,mswd_new
+            
         
         elif calc_RM_ratio_errors == 'Secondary Normalized Ratios':
-            df['SE 207Pb/206Pb'] = df['SE% 207Pb/206Pb']*df['207Pb/206Pb']/100
             
             mswd_new_pb206u238 = calc_fncs.mswd(df,'206Pb/238U c','206Pb/238U Reg. err')
-            mswd_new_pb207pb206 = calc_fncs.mswd(df,'207Pb/206Pb c','SE 207Pb/206Pb')
             
             while mswd_new_pb206u238 > 1.000:
                 df['206Pb/238U Reg. err iterate'] = df['206Pb/238U Reg. err'] + added_error_percent*df['206Pb/238U Reg. err']
@@ -1374,21 +1374,41 @@ class calc_fncs:
             epipb206u238 = added_error_percent
             
             added_error_percent = 0.001
-            while mswd_new_pb207pb206 > 1.000:
-                df['SE 207Pb/206Pb iterate'] = df['SE 207Pb/206Pb'] + added_error_percent*df['SE 207Pb/206Pb']
-                
-                mswd_new_pb207pb206 = calc_fncs.mswd(df,'207Pb/206Pb c','SE 207Pb/206Pb iterate')
-                added_error_percent = added_error_percent+0.001
-                
-            epipb207pb206 = added_error_percent
             
+            if mass_bias_pb == 'By Age':
+                
+                df['SE 207Pb/206Pb'] = df['SE% 207Pb/206Pb']*df['207Pb/206Pb']/100
+                
+                mswd_new_pb207pb206 = calc_fncs.mswd(df,'207Pb/206Pb c','SE 207Pb/206Pb')
+                
+                while mswd_new_pb207pb206 > 1.000:
+                    df['SE 207Pb/206Pb iterate'] = df['SE 207Pb/206Pb'] + added_error_percent*df['SE 207Pb/206Pb']
+                    
+                    mswd_new_pb207pb206 = calc_fncs.mswd(df,'207Pb/206Pb c','SE 207Pb/206Pb iterate')
+                    added_error_percent = added_error_percent+0.001
+                    
+                epipb207pb206 = added_error_percent
+                
+                
+            else:
+                NIST_df['SE 207Pb/206Pb'] = NIST_df['SE% 207Pb/206Pb']*NIST_df['207Pb/206Pb']/100
+                
+                mswd_new_pb207pb206 = calc_fncs.mswd(NIST_df,'207Pb/206Pb c','SE 207Pb/206Pb')
+                
+                while mswd_new_pb207pb206 > 1.000:
+                    NIST_df['SE 207Pb/206Pb iterate'] = NIST_df['SE 207Pb/206Pb'] + added_error_percent*NIST_df['SE 207Pb/206Pb']
+                    
+                    mswd_new_pb207pb206 = calc_fncs.mswd(NIST_df,'207Pb/206Pb c','SE 207Pb/206Pb iterate')
+                    added_error_percent = added_error_percent+0.001
+                    
+                    epipb207pb206 = added_error_percent
+                
             return epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206
         
         elif calc_RM_ratio_errors == 'Primary Raw Ratios':
-            df['SE 207Pb/206Pb'] = df['SE% 207Pb/206Pb']*df['207Pb/206Pb']/100
             
             mswd_new_pb206u238 = calc_fncs.mswd(df,'206Pb/238U_unc','206Pb/238U Reg. err')
-            mswd_new_pb207pb206 = calc_fncs.mswd(df,'207Pb/206Pb','SE 207Pb/206Pb')
+            
             
             while mswd_new_pb206u238 > 1.000:
                 df['206Pb/238U Reg. err iterate'] = df['206Pb/238U Reg. err'] + added_error_percent*df['206Pb/238U Reg. err']
@@ -1399,13 +1419,35 @@ class calc_fncs:
             epipb206u238 = added_error_percent
             
             added_error_percent = 0.001
-            while mswd_new_pb207pb206 > 1.000:
-                df['SE 207Pb/206Pb iterate'] = df['SE 207Pb/206Pb'] + added_error_percent*df['SE 207Pb/206Pb']
+            
+            if mass_bias_pb == 'By Age':
+            
+                df['SE 207Pb/206Pb'] = df['SE% 207Pb/206Pb']*df['207Pb/206Pb']/100
                 
-                mswd_new_pb207pb206 = calc_fncs.mswd(df,'207Pb/206Pb','SE 207Pb/206Pb iterate')
-                added_error_percent = added_error_percent+0.001
+                mswd_new_pb207pb206 = calc_fncs.mswd(df,'207Pb/206Pb','SE 207Pb/206Pb')
                 
-            epipb207pb206 = added_error_percent
+                
+                while mswd_new_pb207pb206 > 1.000:
+                    df['SE 207Pb/206Pb iterate'] = df['SE 207Pb/206Pb'] + added_error_percent*df['SE 207Pb/206Pb']
+                    
+                    mswd_new_pb207pb206 = calc_fncs.mswd(df,'207Pb/206Pb','SE 207Pb/206Pb iterate')
+                    added_error_percent = added_error_percent+0.001
+                    
+                epipb207pb206 = added_error_percent
+                
+            else:
+                NIST_df['SE 207Pb/206Pb'] = NIST_df['SE% 207Pb/206Pb']*NIST_df['207Pb/206Pb']/100
+                
+                mswd_new_pb207pb206 = calc_fncs.mswd(NIST_df,'207Pb/206Pb','SE 207Pb/206Pb')
+                
+                
+                while mswd_new_pb207pb206 > 1.000:
+                    NIST_df['SE 207Pb/206Pb iterate'] = NIST_df['SE 207Pb/206Pb'] + added_error_percent*NIST_df['SE 207Pb/206Pb']
+                    
+                    mswd_new_pb207pb206 = calc_fncs.mswd(NIST_df,'207Pb/206Pb','SE 207Pb/206Pb iterate')
+                    added_error_percent = added_error_percent+0.001
+                    
+                epipb207pb206 = added_error_percent
             
             return epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206
         
@@ -1518,8 +1560,8 @@ class finalize_ages(param.Parameterized):
                 'Pb_Th_std_crct_selector','ThU_zrn_input','ThU_magma_input','calc_RM_ratio_errors')
     def _accept_reduction_parameters(self,event=None):
         u_pb_ratio_treatment = fastgrid_layout.modal[3][0][0][1].value
-        global pb_bias_type
-        pb_bias_type = fastgrid_layout.modal[4][0][0][1].value
+        global mass_bias_pb
+        mass_bias_pb = fastgrid_layout.modal[4][0][0][1].value
         pb_bias_ratio = fastgrid_layout.modal[4][0][1][1].value
         u_bias_type = fastgrid_layout.modal[4][0][2][1].value
         u_bias_ratio = fastgrid_layout.modal[4][0][3][1].value
@@ -1542,7 +1584,7 @@ class finalize_ages(param.Parameterized):
         self.regression_selector = u_pb_ratio_treatment
         self.drift_selector = drift_treatment
         self.drift_nearest_amount = drift_nearest
-        self.mass_bias_pb = pb_bias_type
+        self.mass_bias_pb = mass_bias_pb
         self.mass_bias_pb_ratio = pb_bias_ratio
         self.u_bias_type = u_bias_type
         self.mass_bias_thu_ratio = u_bias_ratio
@@ -1585,8 +1627,8 @@ class finalize_ages(param.Parameterized):
         self.input_data['SE 207Pb/206Pb'] = self.input_data['SE% 207Pb/206Pb']/100 * self.input_data['207Pb/206Pb']
         self.output_data = pd.DataFrame([np.zeros(len(self.input_data.columns))], columns=list(self.input_data.columns))
             
-        if pb_bias_type != 'By Age':
-            pb_bias_std = pb_bias_type
+        if mass_bias_pb != 'By Age':
+            pb_bias_std = mass_bias_pb
             pb_bias_std_df = self.input_data[self.input_data['Sample'] == pb_bias_std]
             pb_bias_std_df = pb_bias_std_df.reset_index(drop=True)
             high_mass_pb,low_mass_pb = pb_bias_ratio.split('/')
@@ -1662,6 +1704,8 @@ class finalize_ages(param.Parameterized):
         df_primary = df_primary.reset_index(drop=True)
         df_secondary = self.input_data[self.input_data['Sample'].isin(secondary_standard_list)]
         df_secondary = df_secondary.reset_index(drop=True)
+        NIST_df = self.input_data[self.input_data['SampleLabel'].str.contains(mass_bias_pb)]
+        NIST_df = NIST_df.reset_index(drop=True)
         
         mask = df_secondary['Sample'].isin(stds_dict.keys())
         
@@ -1677,7 +1721,7 @@ class finalize_ages(param.Parameterized):
                 s_df['Common 207Pb/206Pb Error'] = s_common207206_error
                 secondary_ages = calc_fncs.correct_sample_ages(s_df,df_primary,primary_std,df_secondary,secondary_std_RMRatioUnc,ThUzirconratio_stds,ThUmagmaratio_stds,commonPb_Thdisequil_treatment_stds,
                                                                u_pb_ratio_treatment,DThU_treatment,s_common207206,s_common207206_error,
-                                                               drift_treatment,drift_nearest,RMratioerrortype)
+                                                               drift_treatment,drift_nearest,RMratioerrortype, mass_bias_pb, NIST_df)
                 if self.output_secondary_data is None:
                     self.output_secondary_data = secondary_ages
                 else:
@@ -1757,11 +1801,13 @@ class finalize_ages(param.Parameterized):
         #     pass
     
     
-    @pn.depends('input_data', 'text_sample_selector','text_standard_selector','output_secondary_data','drift_selector', 'drift_nearest_amount', 'calc_RM_ratio_errors', 'regression_selector')
+    @pn.depends('input_data', 'text_sample_selector','text_standard_selector','output_secondary_data','drift_selector', 'drift_nearest_amount', 'calc_RM_ratio_errors', 'regression_selector', 'mass_bias_pb')
     def _show_RM_ratios(self):
         if self.text_sample_selector != 'Input Sample ID':
             chosen_std = self.input_data[self.input_data['SampleLabel'].str.contains(self.text_standard_selector)]
             chosen_secondary_data = self.output_secondary_data[self.output_secondary_data['SampleLabel'].str.contains(self.text_secondary_selector)]
+            NIST_df = self.input_data[self.input_data['SampleLabel'].str.contains(mass_bias_pb)]
+            NIST_df = NIST_df.reset_index(drop=True)
             chosen_std = chosen_std.reset_index(drop=True)
             chosen_secondary_data = chosen_secondary_data.reset_index(drop=True)
                 # if drift treatment requested, check if correcting by ZRM. If so, get the requested nearest number and use those to correct data
@@ -1770,7 +1816,7 @@ class finalize_ages(param.Parameterized):
                     if self.calc_RM_ratio_errors == 'Secondary Age':
                         for i in range(0,len(chosen_secondary_data)):
                             nearest_stds = chosen_std.iloc[(chosen_std['measurementindex']-chosen_secondary_data.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
-                            epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors)
+                            epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
                             chosen_secondary_data.loc[i,'SE 207Pb/206Pb'] = chosen_secondary_data.loc[i,'SE% 207Pb/206Pb']/100*chosen_secondary_data.loc[i,'207Pb/206Pb c']
                             chosen_secondary_data.loc[i,'Epsilon 207Pb/206Pb'] = epi
                             chosen_secondary_data.loc[i,'Epsilon 206Pb/238U'] = epi
@@ -1785,7 +1831,7 @@ class finalize_ages(param.Parameterized):
                     elif self.calc_RM_ratio_errors == 'Secondary Normalized Ratios':
                         for i in range(0,len(chosen_secondary_data)):
                             nearest_stds = chosen_std.iloc[(chosen_std['measurementindex']-chosen_secondary_data.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
-                            epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors)
+                            epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
                             chosen_secondary_data.loc[i,'SE 207Pb/206Pb'] = chosen_secondary_data.loc[i,'SE% 207Pb/206Pb']/100*chosen_secondary_data.loc[i,'207Pb/206Pb c']
                             chosen_secondary_data.loc[i,'Epsilon 207Pb/206Pb'] = epipb207pb206
                             chosen_secondary_data.loc[i,'Epsilon 206Pb/238U'] = epipb206u238
@@ -1802,7 +1848,7 @@ class finalize_ages(param.Parameterized):
                     elif self.calc_RM_ratio_errors == 'Primary Raw Ratios':
                         for i in range(0,len(chosen_std)):
                             nearest_stds = chosen_std.iloc[(chosen_std['measurementindex']-chosen_std.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
-                            epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(nearest_stds, self.regression_selector, self.calc_RM_ratio_errors)
+                            epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(nearest_stds, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
                             chosen_std.loc[i,'SE 207Pb/206Pb'] = chosen_std.loc[i,'SE% 207Pb/206Pb']/100*chosen_std.loc[i,'207Pb/206Pb']
                             chosen_std.loc[i,'Epsilon 207Pb/206Pb'] = epipb207pb206
                             chosen_std.loc[i,'Epsilon 206Pb/238U'] = epipb206u238
@@ -1820,7 +1866,7 @@ class finalize_ages(param.Parameterized):
                             
             else:
                 if self.calc_RM_ratio_errors == 'Secondary Age':
-                    epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors)
+                    epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
                     chosen_secondary_data['SE 207Pb/206Pb'] = chosen_secondary_data['SE% 207Pb/206Pb']/100*chosen_secondary_data['207Pb/206Pb c']
                     chosen_secondary_data['Epsilon 207Pb/206Pb'] = epi
                     chosen_secondary_data['Epsilon 206Pb/238U'] = epi
@@ -1834,7 +1880,7 @@ class finalize_ages(param.Parameterized):
                     RM_isotope_ratio_data = chosen_secondary_data
                     
                 elif self.calc_RM_ratio_errors == 'Secondary Normalized Ratios':
-                    epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors)
+                    epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
                     chosen_secondary_data['SE 207Pb/206Pb'] = chosen_secondary_data['SE% 207Pb/206Pb']/100*chosen_secondary_data['207Pb/206Pb c']
                     chosen_secondary_data['206Pb/238U Reg. err'] = chosen_secondary_data['206Pb/238U Reg. err']
                     chosen_secondary_data['Epsilon 207Pb/206Pb'] = epipb207pb206
@@ -1852,7 +1898,7 @@ class finalize_ages(param.Parameterized):
                     RM_isotope_ratio_data = chosen_secondary_data
                     
                 elif self.calc_RM_ratio_errors == 'Primary Raw Ratios':
-                    epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(chosen_std, self.regression_selector, self.calc_RM_ratio_errors)
+                    epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(chosen_std, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
                     chosen_std['SE 207Pb/206Pb'] = chosen_std['SE% 207Pb/206Pb']/100*chosen_std['207Pb/206Pb c']
                     chosen_std['Epsilon 207Pb/206Pb'] = epipb207pb206
                     chosen_std['Epsilon 206Pb/238U'] = epipb206u238
@@ -1882,8 +1928,11 @@ class finalize_ages(param.Parameterized):
         data_to_update = self.input_data[self.input_data['SampleLabel'].str.contains(self.text_sample_selector)]
         chosen_std = self.input_data[self.input_data['SampleLabel'].str.contains(self.text_standard_selector)]
         chosen_secondary_data = self.output_secondary_data[self.output_secondary_data['SampleLabel'].str.contains(self.text_secondary_selector)]
+        NIST_df = self.input_data[self.input_data['SampleLabel'].str.contains(self.mass_bias_pb)]
+        chosen_std = chosen_std.reset_index(drop=True)
+        chosen_secondary_data = chosen_secondary_data.reset_index(drop=True)
         ages = calc_fncs.correct_sample_ages(data_to_update, chosen_std, self.text_standard_selector, chosen_secondary_data, self.text_secondary_selector, self.ThU_zrn_input, self.ThU_magma_input, self.Pb_Th_std_crct_selector, self.regression_selector,
-                                             self.DThU_treatment,self.common_207206_input,self.common_207206_error,self.drift_selector,self.drift_nearest_amount,self.calc_RM_ratio_errors)
+                                             self.DThU_treatment,self.common_207206_input,self.common_207206_error,self.drift_selector,self.drift_nearest_amount,self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
         if self.output_data is None:
             self.output_data = ages
         else:
