@@ -74,7 +74,7 @@ stds_dict = {'Temora': [2.4, 0.79200, 18.0528, 15.5941, 0.055137, 175, 2.4],  # 
               # Klepeis et al 1998
               '94-35': [1, 0.33, 18.6191, 15.626, 0.047145, 141.4, 1e-7],
               # Slama et al 2008
-              'Plesovice': [10.7, 0.25, 18.1804, 15.6022, 0.053218, 0, 1e-7],
+              'Plesovice': [10.7, 0.25, 18.1804, 15.6022, 0.053218, 1e-7, 1e-7],
               # Black et al., 2004. Ambiguous Th correction > assumed D = 0.33
               'R33': [1.4, 0.46200, 18.0487, 15.5939, 0.055199, 175, 1.4],
               # Wiedenbeck et al 1995
@@ -84,7 +84,7 @@ stds_dict = {'Temora': [2.4, 0.79200, 18.0528, 15.5941, 0.055137, 175, 2.4],  # 
               # unpublished; Bowring > assumed D = 0.33
               'Oracle': [2.2, 0.725999, 16.2726, 15.4099, 0.090545, 277, 2.2],
               # Pecha unpublished > assumed D = 0.33
-              'Tan-Bra': [1.2, 0.39600, 14.0716, 14.8653, 0.165098, 0, 1e-7],
+              'Tan-Bra': [1.2, 0.39600, 14.0716, 14.8653, 0.165098, 1e-7, 1e-7],
               # Stern et al 2009. Ambiguous Th correction > assumed D = 0.33
               'OG1': [1.3, 0.42900, 11.8337, 13.6071, 0.294475, 181, 1.3]
               }  
@@ -96,10 +96,10 @@ accepted_ages = {
     'Plesovice': [337100000,337.26*1e6],
     'R33': [419300000,418.41*1e6],
     '91500': [1062400000,1063501210],
-    'FC1': 1099500000,
-    'Oracle': 1436200000,
-    'Tan-Bra': 2507800000,
-    'OG1': 3440700000
+    'FC1': [1099500000,0],
+    'Oracle': [1436200000,0],
+    'Tan-Bra': [2507800000,0],
+    'OG1': [3440700000,0]
 }
 
 TIMS_errors = {
@@ -914,6 +914,7 @@ class calc_fncs:
                     for i in range(0,len(df)):
                         nearest_stds = std.iloc[(std['measurementindex']-df.loc[i,'measurementindex']).abs().argsort()[:drift_nearest]] # get nearest standards
                         nearest_secondary_stds = df_secondary.iloc[(df_secondary['measurementindex']-df.loc[i,'measurementindex']).abs().argsort()[:drift_nearest]] # get nearest standards
+                        nearest_NIST = NIST_df.iloc[(NIST_df['measurementindex']-df.loc[i,'measurementindex']).abs().argsort()[:drift_nearest]] # get nearest standards
                         std_set_i = nearest_stds # variable change to prevent premature overwriting
                         # get the fractionation factors and standard statistics
                         frac_factor, frac_factor_207, frac_factor_76, tims_age, tims_error, tims_age_207, tims_error_207, avg_std_age, avg_std_age_Thcrct, avg_std_age_207, avg_std_ratio, avg_std_ratio_Thcrct, avg_std_ratio_207, avg_reg_err, avg_reg_err_207, UTh_std, UTh_std_m = calc_fncs.get_standard_fracfctr(std_set_i, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input)
@@ -933,7 +934,7 @@ class calc_fncs:
                             pass
                         else:
                             if calc_RM_ratio_errors == 'Secondary Age':
-                                epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(nearest_secondary_stds, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df)
+                                epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(nearest_secondary_stds, regression_selector, calc_RM_ratio_errors, mass_bias_pb, nearest_NIST)
                                 if epi > 0.001:
                                     df.loc[i,'SE% 207Pb/206Pb'] = (df.loc[i,'SE 207Pb/206Pb'] + epi*df.loc[i,'SE 207Pb/206Pb'])/df.loc[i,'207Pb/206Pb c']*100
                                     df.loc[i,'206Pb/238U Reg. err'] = df.loc[i,'206Pb/238U Reg. err'] + epi*df.loc[i,'206Pb/238U Reg. err']
@@ -943,7 +944,7 @@ class calc_fncs:
                                 df.loc[i,'Epsilon 207Pb/206Pb'] = epi
                                 df.loc[i,'Epsilon 206Pb/238U'] = epi
                             elif calc_RM_ratio_errors == 'Secondary Normalized Ratios':
-                                epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(nearest_secondary_stds, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df)
+                                epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(nearest_secondary_stds, regression_selector, calc_RM_ratio_errors, mass_bias_pb, nearest_NIST)
                                 if epipb207pb206 > 0.001:
                                     df.loc[i,'SE% 207Pb/206Pb'] = (df.loc[i,'SE 207Pb/206Pb'] + epipb207pb206*df.loc[i,'SE 207Pb/206Pb'])/df.loc[i,'207Pb/206Pb c']*100
                                 else:
@@ -956,7 +957,7 @@ class calc_fncs:
                                 df.loc[i,'Epsilon 207Pb/206Pb'] = epipb207pb206
                                 df.loc[i,'Epsilon 206Pb/238U'] = epipb206u238
                             elif calc_RM_ratio_errors == 'Primary Raw Ratios':
-                                epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(std, regression_selector, calc_RM_ratio_errors, mass_bias_pb, NIST_df)
+                                epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(std, regression_selector, calc_RM_ratio_errors, mass_bias_pb, nearest_NIST)
                                 if epipb207pb206 > 0.001:
                                     df.loc[i,'SE% 207Pb/206Pb'] = (df.loc[i,'SE 207Pb/206Pb'] + epipb207pb206*df.loc[i,'SE 207Pb/206Pb'])/df.loc[i,'207Pb/206Pb c']*100
                                 else:
@@ -1816,7 +1817,8 @@ class finalize_ages(param.Parameterized):
                     if self.calc_RM_ratio_errors == 'Secondary Age':
                         for i in range(0,len(chosen_secondary_data)):
                             nearest_stds = chosen_std.iloc[(chosen_std['measurementindex']-chosen_secondary_data.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
-                            epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
+                            nearest_NIST = NIST_df.iloc[(NIST_df['measurementindex']-chosen_secondary_data.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
+                            epi,mswd_new = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, nearest_NIST)
                             chosen_secondary_data.loc[i,'SE 207Pb/206Pb'] = chosen_secondary_data.loc[i,'SE% 207Pb/206Pb']/100*chosen_secondary_data.loc[i,'207Pb/206Pb c']
                             chosen_secondary_data.loc[i,'Epsilon 207Pb/206Pb'] = epi
                             chosen_secondary_data.loc[i,'Epsilon 206Pb/238U'] = epi
@@ -1831,7 +1833,8 @@ class finalize_ages(param.Parameterized):
                     elif self.calc_RM_ratio_errors == 'Secondary Normalized Ratios':
                         for i in range(0,len(chosen_secondary_data)):
                             nearest_stds = chosen_std.iloc[(chosen_std['measurementindex']-chosen_secondary_data.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
-                            epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
+                            nearest_NIST = NIST_df.iloc[(NIST_df['measurementindex']-chosen_secondary_data.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
+                            epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(chosen_secondary_data, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, nearest_NIST)
                             chosen_secondary_data.loc[i,'SE 207Pb/206Pb'] = chosen_secondary_data.loc[i,'SE% 207Pb/206Pb']/100*chosen_secondary_data.loc[i,'207Pb/206Pb c']
                             chosen_secondary_data.loc[i,'Epsilon 207Pb/206Pb'] = epipb207pb206
                             chosen_secondary_data.loc[i,'Epsilon 206Pb/238U'] = epipb206u238
@@ -1848,7 +1851,8 @@ class finalize_ages(param.Parameterized):
                     elif self.calc_RM_ratio_errors == 'Primary Raw Ratios':
                         for i in range(0,len(chosen_std)):
                             nearest_stds = chosen_std.iloc[(chosen_std['measurementindex']-chosen_std.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
-                            epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(nearest_stds, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
+                            nearest_NIST = NIST_df.iloc[(NIST_df['measurementindex']-chosen_secondary_data.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
+                            epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(nearest_stds, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, nearest_NIST)
                             chosen_std.loc[i,'SE 207Pb/206Pb'] = chosen_std.loc[i,'SE% 207Pb/206Pb']/100*chosen_std.loc[i,'207Pb/206Pb']
                             chosen_std.loc[i,'Epsilon 207Pb/206Pb'] = epipb207pb206
                             chosen_std.loc[i,'Epsilon 206Pb/238U'] = epipb206u238
