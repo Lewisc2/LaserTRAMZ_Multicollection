@@ -1016,10 +1016,10 @@ class make_plots(param.Parameterized):
     
     accept_array_button = param.Action(lambda x: x.close_modal_setdata(),label='Accept Detector Array') # button that triggers the collector block anaalyte assignments to be accepted
     accept_interval_button = param.Action(lambda x: x.send_reduction(),label='Accept Interval') # button that triggers sample name to be accepted and ablation to be reduced
-    ablation_start = param.Number(51.1,bounds=(0,8200),softbounds=(50,90),step=0.1) # number that defines where ablation intervals starts
-    ablation_end = param.Number(76.3,bounds=(0,8200),step=0.1) # number that defines where ablation ends
-    background_start = param.Number(31.2,bounds=(0,8200),step=0.1) # number that defines where background starts
-    background_end = param.Number(46.3,bounds=(0,8200),step=0.1) # number that defines where background ends
+    ablation_start = param.Number(51.1,bounds=(0,8600),softbounds=(50,90),step=0.1) # number that defines where ablation intervals starts
+    ablation_end = param.Number(76.3,bounds=(0,8600),step=0.1) # number that defines where ablation ends
+    background_start = param.Number(31.2,bounds=(0,8600),step=0.1) # number that defines where background starts
+    background_end = param.Number(46.3,bounds=(0,8600),step=0.1) # number that defines where background ends
     
         
     def __init__(self,**params):
@@ -1338,10 +1338,10 @@ widgets={'ratio_buttons': pn.widgets.CheckBoxGroup,
          'counts_mode': pn.widgets.RadioButtonGroup,
          'export_data_button': pn.widgets.Button(name='DDDT!',button_type='success'),
          'analytes_': pn.widgets.CheckBoxGroup,
-         'ablation_start': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(51.1),step=0.1,name='Ablation Start'),
-         'ablation_end': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(76.3),step=0.1,name='Ablation End'),
-         'background_start': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(31.2),step=0.1,name='Background Start'),
-         'background_end': pn.widgets.EditableFloatSlider(start=0,end=7600,value=(46.3),step=0.1,name='Background End')
+         'ablation_start': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(51.1),step=0.1,name='Ablation Start'),
+         'ablation_end': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(76.3),step=0.1,name='Ablation End'),
+         'background_start': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(31.2),step=0.1,name='Background Start'),
+         'background_end': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(46.3),step=0.1,name='Background End')
          }
 
     

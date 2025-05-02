@@ -376,10 +376,10 @@ class calc_fncs:
         
         ax.plot(x_TW, y_TW, 'k', lw=1)
         ax.errorbar(df['238U/206Pb'], df['207Pb/206Pb c'], xerr=df['238U/206Pb err'],yerr=df['SE% 207Pb/206Pb']*df['207Pb/206Pb']/100*2, fmt='none', ecolor='k', elinewidth=0.5)
-        ax.plot(df['238U/206Pb'], df['207Pb/206Pb'], 'd', mfc='yellow', mec='k')
+        ax.plot(df['238U/206Pb'], df['207Pb/206Pb c'], 'd', mfc='yellow', mec='k')
         
         if 'Concordia' in label_toggle:
-            for x, y, t in zip(df['238U/206Pb'], df['207Pb/206Pb'], df['SampleLabel']):
+            for x, y, t in zip(df['238U/206Pb'], df['207Pb/206Pb c'], df['SampleLabel']):
                 label = t
                 ax.annotate(label, (x, y),textcoords="offset points",  xytext=(0, 10),ha='center',fontsize=8)
             else:
