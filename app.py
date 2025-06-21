@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request
 import sys
+import os
 sys.path.append('./scripts')
-from LaserTRAMZ_MC_UPb_analytes import calc_fncs
 import panel as pn
 pn.extension()
 
@@ -15,6 +15,10 @@ def index():
 def analytes():
     return render_template('analytes.html')
 
+@app.route("/concordia")
+def concordia():
+    return render_template('concordia.html')
+
 if __name__ == '__main__':
     # Start the Panel server in a subprocess
     import subprocess
@@ -22,13 +26,16 @@ if __name__ == '__main__':
 
     # Serve the Panel app on port 8006
     panel_proc = subprocess.Popen([
-        sys.executable, '-m', 'panel', 'serve',
-        os.path.join('LaserTRAMZ_MC_UPb_analytes.py'),
-        '--address', 'localhost', '--port', '8006', '--allow-websocket-origin=localhost:8000'
-    ])
+    sys.executable, '-m', 'panel', 'serve',
+    os.path.join('scripts', 'LaserTRAMZ_MC_UPb_analytes.py'),
+    os.path.join('scripts', 'LaserTRAMZ_MC_UPb_Concordia.py'),
+    '--address', 'localhost', '--port', '8006',
+    '--allow-websocket-origin=localhost:8000',
+    '--allow-websocket-origin=localhost:8006'
+])
 
     try:
-        # Start Flask app on port 5000
-        app.run(port=8000, debug=True)
+        # Start Flask app on port 8000
+        app.run(port=8000, debug=False)
     finally:
         panel_proc.terminate()

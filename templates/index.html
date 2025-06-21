@@ -17,11 +17,32 @@
         transition: background 0.2s;
       }
       .btn:hover { background: #1565c0; }
+      body { font-family: Arial, sans-serif; margin: 0; }
+      .topbar {
+        background: #1976d2;
+        color: #fff;
+        padding: 16px;
+        font-size: 22px;
+      }
+      .back-link {
+        color: #fff;
+        text-decoration: underline;
+        margin-left: 20px;
+        font-size: 16px;
+      }
+      iframe { width: 100vw; height: 95vh; border: none; }
     </style>
 </head>
 <body>
+  <div class="topbar">
+      LaserTRAMZ Analytes App
+      <a href="{{ url_for('index') }}" class="back-link">Home</a>
+      <a href="{{ url_for('analytes') }}" class="back-link">Analytes</a>
+      <a href="{{ url_for('concordia') }}" class="back-link">Concordia</a>
+    </div>
     <h1>Welcome to LaserTRAMZ</h1>
     <p>This is the home page for the LaserTRAMZ LA-MC-ICP-MS data reduction suite.</p>
     <a href="{{ url_for('analytes') }}" class="btn">Go to Analytes App</a>
+    <a href="{{ url_for('concordia') }}" class="btn">Go to Concordia App</a>
 </body>
 </html>

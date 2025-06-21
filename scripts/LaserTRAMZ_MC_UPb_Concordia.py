@@ -2059,7 +2059,10 @@ fastgrid_layout.main.append(pn.Row(pn.Column(reduce_ages.call_Concordia),pn.Colu
 fastgrid_layout.main.append(pn.Row(reduce_ages.call_drift_plot))
 fastgrid_layout.main.append(pn.Row(reduce_ages._show_RM_ratios))
 fastgrid_layout.main.append(pn.Column(reduce_ages._update_data_widget)) # for vanilla
-fastgrid_layout.show();
+# fastgrid_layout.show();
 
+fastgrid_layout.servable()
 
+if __name__ == "__main__":
+    pn.serve(fastgrid_layout, show=True)
 
