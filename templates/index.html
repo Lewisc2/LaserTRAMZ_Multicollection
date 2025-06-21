@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>LaserTRAMZ Home</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 40px; }
+      .btn {
+        display: inline-block;
+        padding: 12px 24px;
+        font-size: 18px;
+        background: #1976d2;
+        color: #fff;
+        border: none;
+        border-radius: 6px;
+        text-decoration: none;
+        margin-top: 30px;
+        transition: background 0.2s;
+      }
+      .btn:hover { background: #1565c0; }
+    </style>
+</head>
+<body>
+    <h1>Welcome to LaserTRAMZ</h1>
+    <p>This is the home page for the LaserTRAMZ LA-MC-ICP-MS data reduction suite.</p>
+    <a href="{{ url_for('analytes') }}" class="btn">Go to Analytes App</a>
+</body>
+</html>

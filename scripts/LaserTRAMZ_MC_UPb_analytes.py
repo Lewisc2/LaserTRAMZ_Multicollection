@@ -15,6 +15,11 @@ Created on Mon May  6 12:18:40 2024
 """
 
 
+
+
+
+
+
 import pandas as pd
 pd.set_option('display.max_columns', None)
 import numpy as np
@@ -1365,7 +1370,8 @@ fastgrid_layout.main.append(pn.Row(pn.WidgetBox(pn.Param(callapp.param.ablation_
 fastgrid_layout.main.append(pn.Column(callapp.call_ablation_plot,pn.Row(callapp.call_ratio_plot,callapp.call_ratio_plot76))) # for vanilla
 fastgrid_layout.main.append(pn.Column(callapp._update_output_widget))
 
-fastgrid_layout.show();
+fastgrid_layout.servable()
 
-
+if __name__ == "__main__":
+    pn.serve(fastgrid_layout, show=True)
     
