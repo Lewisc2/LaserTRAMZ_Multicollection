@@ -1414,7 +1414,7 @@ class calc_fncs:
             while mswd_new_pb206u238 > 1.000:
                 df['206Pb/238U Reg. err iterate'] = df['206Pb/238U Reg. err'] + added_error_percent*df['206Pb/238U Reg. err']
                 
-                mswd_new_pb206u238 = calc_fncs.mswd(df,'206Pb/238U','206Pb/238U Reg. err iterate')
+                mswd_new_pb206u238 = calc_fncs.mswd(df,'206Pb/238U_unc','206Pb/238U Reg. err iterate')
                 added_error_percent = added_error_percent+0.001
             
             epipb206u238 = added_error_percent
