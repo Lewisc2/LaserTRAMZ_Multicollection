@@ -1015,7 +1015,7 @@ class make_plots(param.Parameterized):
     integration_time = param.Number(default=0.01)
     # boolean button to choose whether or not to calculate confidence ellipsoids
     ellipsemode_selector = param.Boolean(True,label='Generate Ellipse')
-    power = param.Number(default=0.1353) #power for confidence ellipse
+    power = param.Number(default=0.05) #power for confidence ellipse
     
     input_data = param.DataFrame(precedence=-1) # initialize dataframe to be populated with uploaded data
     file_path = param.String(default='Insert File Path') # string that will be populated with file path
