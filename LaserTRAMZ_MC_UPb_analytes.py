@@ -240,8 +240,12 @@ class calc_fncs:
             u238_235 = data_totalcounts['238U']/data_totalcounts['235U']
             u238_th232 = data_totalcounts['238U']/data_totalcounts['232Th']
             pb207_206 = data_totalcounts['207Pb']/data_totalcounts['206Pb']
-            pb206_204 = data_totalcounts['206Pb']/data_totalcounts['204Pb']
-            pb207_204 = data_totalcounts['207Pb']/data_totalcounts['204Pb']
+            if data_totalcounts['204Pb'] <= 0:
+                pb206_204 = 0
+                pb207_204 = 0
+            else:
+                pb206_204 = data_totalcounts['206Pb']/data_totalcounts['204Pb']
+                pb207_204 = data_totalcounts['207Pb']/data_totalcounts['204Pb']
             
             
             # community accepted SE of measurement on ratios and their percentages
@@ -686,6 +690,10 @@ class calc_fncs:
         
         cov1 = np.cov(x1,y1)
         cov2 = np.cov(x2,y2)
+        if np.isnan(np.min(cov1)):
+            cov1 = np.nan_to_num(cov1)
+        if np.isnan(np.min(cov2)):
+            cov2 = np.nan_to_num(cov2)
         eigval1,eigvec1 = np.linalg.eig(cov1)
         eigval2,eigvec2 = np.linalg.eig(cov2)
         order1 = eigval1.argsort()[::-1]
