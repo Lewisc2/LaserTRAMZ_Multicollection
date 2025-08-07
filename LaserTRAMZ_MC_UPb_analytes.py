@@ -674,14 +674,14 @@ class calc_fncs:
         data.drop(drop_condn,inplace=True)
         data = data.reset_index(drop=True)
         
-        if counts_mode != 'Total Counts':
-            adjusted,adjusted_207 = calc_fncs.get_regressions(data,regression_buttons,ablation_start_true)
-            if ('1st Order' in regression_buttons) and ('Exp. Regression' not in regression_buttons):
-                data['207Pb/235U'] = adjusted_207[0]
-                data['206Pb/238U'] = adjusted[0]
-            else:
-                data['207Pb/235U'] = adjusted_207[1]
-                data['206Pb/238U'] = adjusted[1]
+        # if counts_mode != 'Total Counts':
+        adjusted,adjusted_207 = calc_fncs.get_regressions(data,regression_buttons,ablation_start_true)
+        if ('1st Order' in regression_buttons) and ('Exp. Regression' not in regression_buttons):
+            data['207Pb/235U'] = adjusted_207[0]
+            data['206Pb/238U'] = adjusted[0]
+        else:
+            data['207Pb/235U'] = adjusted_207[1]
+            data['206Pb/238U'] = adjusted[1]
         
         x1 = data['207Pb/235U']
         y1 = data['206Pb/238U']
