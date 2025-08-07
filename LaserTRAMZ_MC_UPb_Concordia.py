@@ -1851,7 +1851,7 @@ class finalize_ages(param.Parameterized):
                     elif self.calc_RM_ratio_errors == 'Primary Raw Ratios':
                         for i in range(0,len(chosen_std)):
                             nearest_stds = chosen_std.iloc[(chosen_std['measurementindex']-chosen_std.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
-                            nearest_NIST = NIST_df.iloc[(NIST_df['measurementindex']-chosen_secondary_data.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
+                            nearest_NIST = NIST_df.iloc[(NIST_df['measurementindex']-chosen_std.loc[i,'measurementindex']).abs().argsort()[:self.drift_nearest_amount]] # get nearest standards
                             epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206 = calc_fncs.calc_RM_ratio_errors_iterate(nearest_stds, self.regression_selector, self.calc_RM_ratio_errors, self.mass_bias_pb, nearest_NIST)
                             chosen_std.loc[i,'SE 207Pb/206Pb'] = chosen_std.loc[i,'SE% 207Pb/206Pb']/100*chosen_std.loc[i,'207Pb/206Pb']
                             chosen_std.loc[i,'Epsilon 207Pb/206Pb'] = epipb207pb206
