@@ -1402,7 +1402,7 @@ class calc_fncs:
                     mswd_new_pb207pb206 = calc_fncs.mswd(NIST_df,'207Pb/206Pb c','SE 207Pb/206Pb iterate')
                     added_error_percent = added_error_percent+0.001
                     
-                    epipb207pb206 = added_error_percent
+                  epipb207pb206 = added_error_percent
                 
             return epipb206u238, epipb207pb206, mswd_new_pb206u238, mswd_new_pb207pb206
         
