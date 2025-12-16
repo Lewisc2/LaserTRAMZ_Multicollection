@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
+<<<<<<< HEAD
 Created on Thu Jan  2 15:20:07 2025
+=======
+Created on Mon May  6 12:18:40 2024
+>>>>>>> e22ffe51f0d94051506d1596f014cfa1e8f104b3
 
 @author: ctlewis
 """
@@ -240,8 +244,12 @@ class calc_fncs:
             u238_235 = data_totalcounts['238U']/data_totalcounts['235U']
             u238_th232 = data_totalcounts['238U']/data_totalcounts['232Th']
             pb207_206 = data_totalcounts['207Pb']/data_totalcounts['206Pb']
-            pb206_204 = data_totalcounts['206Pb']/data_totalcounts['204Pb']
-            pb207_204 = data_totalcounts['207Pb']/data_totalcounts['204Pb']
+            if data_totalcounts['204Pb'] <= 0:
+                pb206_204 = 0
+                pb207_204 = 0
+            else:
+                pb206_204 = data_totalcounts['206Pb']/data_totalcounts['204Pb']
+                pb207_204 = data_totalcounts['207Pb']/data_totalcounts['204Pb']
             
             
             # community accepted SE of measurement on ratios and their percentages
@@ -330,7 +338,7 @@ class calc_fncs:
             resid1 = fit1.resid # get the residuals of the regression
             
             y1_207,X1_207 = dmatrices('y207 ~ Time', data=data, return_type='dataframe') # get y and x regression data
-            fit1_207 = sm.OLS(y1_207,X1_207).fit()
+            fit1_207 = sm.OLS(y207,X1_207).fit()
             predicted1_207 = fit1_207.params[0] + fit1_207.params[1]*data.Time # get the predicted y values for the given x values
             predicted_b01_207 = fit1_207.params[0] + fit1_207.params[1]*ablation_start_true # get the predicted value at the ablation start that is input by the user
             sigma1_207 = np.sqrt(fit1_207.ssr/fit1_207.df_resid) # get the 1SD (Sum Squared residuals / residual degrees of freedom)^(1/2)
@@ -468,10 +476,26 @@ class calc_fncs:
             return predicted_to_return,predicted_to_return_207,resid_to_return,resid_to_return_207
         
         elif callingmethod == 'get_ellipse':
-            predicted_to_return = [predicted1,predictedexp]
-            predicted_to_return_207 = [predicted1_207,predictedexp_207]
+            predicted1_ellipse = resid1 + fit1.params[0]
+            predicted1_207_ellipse = resid1_207 + fit1_207.params[0]
+            if 'Exp. Regression' in regression_buttons:
+                if curve638 == 'extra variable':
+                    predictedexp_ellipse = residexp + popt[0] + popt[2]
+                else:
+                    predictedexp_ellipse = residexp + popt[0]
+                if curve735 == 'extra variable':
+                    predictedexp_207_ellipse = residexp_207 + popt_207[0] + popt_207[2]
+                else:
+                    predictedexp_207_ellipse = residexp_207 + popt_207[0]
+            else:
+                predictedexp_ellipse = np.zeros_like(data['Time'])
+                predictedexp_207_ellipse = np.zeros_like(data['Time'])
+            
+            predicted_to_return = [predicted1_ellipse,predictedexp_ellipse]
+            predicted_to_return_207 = [predicted1_207_ellipse,predictedexp_207_ellipse]
             
             return predicted_to_return,predicted_to_return_207
+
         
         else:
             pass
@@ -575,7 +599,7 @@ class calc_fncs:
         # 202Hg: 29.86%, 204Hg: 6.87% https://www.nndc.bnl.gov/nudat3/
         Hgratio = (6.87/100) / (29.86/100) # get cononical 204Hg/202Hg ratio
         
-        Weth_ellparams,TW_ellparams = calc_fncs.get_ellipse(ellipse_data_toapprove,power,ablation_start_true,regression_buttons,counts_mode)
+        Weth_ellparams,TW_ellparams,x1,y1,y2 = calc_fncs.get_ellipse(ellipse_data_toapprove,power,ablation_start_true,regression_buttons,counts_mode)
         
         Weth_ellparams = pd.DataFrame([Weth_ellparams],columns=['Weth C','Weth Wid1','Weth Wid2','Weth rho'])
         TW_ellparams = pd.DataFrame([TW_ellparams],columns=['TW C','TW Wid1','TW Wid2','TW rho'])
@@ -654,14 +678,14 @@ class calc_fncs:
         data.drop(drop_condn,inplace=True)
         data = data.reset_index(drop=True)
         
-        if counts_mode != 'Total Counts':
-            predicted,predicted_207 = calc_fncs.get_regressions(data,regression_buttons,ablation_start_true)
-            if ('1st Order' in regression_buttons) and ('Exp. Regression' not in regression_buttons):
-                data['207Pb/235U'] = predicted_207[0]
-                data['206Pb/238U'] = predicted[0]
-            else:
-                data['207Pb/235U'] = predicted_207[1]
-                data['206Pb/238U'] = predicted[1]
+        # if counts_mode != 'Total Counts':
+        adjusted,adjusted_207 = calc_fncs.get_regressions(data,regression_buttons,ablation_start_true)
+        if ('1st Order' in regression_buttons) and ('Exp. Regression' not in regression_buttons):
+            data['207Pb/235U'] = adjusted_207[0]
+            data['206Pb/238U'] = adjusted[0]
+        else:
+            data['207Pb/235U'] = adjusted_207[1]
+            data['206Pb/238U'] = adjusted[1]
         
         x1 = data['207Pb/235U']
         y1 = data['206Pb/238U']
@@ -670,6 +694,10 @@ class calc_fncs:
         
         cov1 = np.cov(x1,y1)
         cov2 = np.cov(x2,y2)
+        if np.isnan(np.min(cov1)):
+            cov1 = np.nan_to_num(cov1)
+        if np.isnan(np.min(cov2)):
+            cov2 = np.nan_to_num(cov2)
         eigval1,eigvec1 = np.linalg.eig(cov1)
         eigval2,eigvec2 = np.linalg.eig(cov2)
         order1 = eigval1.argsort()[::-1]
@@ -691,7 +719,7 @@ class calc_fncs:
         ell1_params = [c1,wid1,hgt1,theta1]
         ell2_params = [c2,wid2,hgt2,theta2]
         
-        return ell1_params,ell2_params
+        return ell1_params,ell2_params,x1,y1,y2
     
         
 # %%        
@@ -943,7 +971,7 @@ class plots(calc_fncs):
         data = data.dropna()
         drop_condn = data[(data['206Pb/238U'] == 0) | (data['207Pb/235U'] == 0) | (data['207Pb/206Pb'] == 0)].index # set up a mask to drop observations that are = 0
         data.drop(drop_condn,inplace=True) # drop them
-        ell1p,ell2p = calc_fncs.get_ellipse(data, power,ablation_start_true,regression_buttons,counts_mode) # get the parameters of the confidence ellipsoids
+        ell1p,ell2p,pbu735,pbu638,pbpb76 = calc_fncs.get_ellipse(data, power,ablation_start_true,regression_buttons,counts_mode) # get the parameters of the confidence ellipsoids
 
         ell1 = Ellipse(xy=ell1p[0],width=ell1p[1],height=ell1p[2],angle=ell1p[3],color='darkkhaki',ec='k',alpha=0.5) # set the parameters into a plotable 'patch'
         ell2 = Ellipse(xy=ell2p[0],width=ell2p[1],height=ell2p[2],angle=ell2p[3],color='darkkhaki',ec='k',alpha=0.5)
@@ -953,9 +981,9 @@ class plots(calc_fncs):
         ax2 = fig2.add_subplot()
         
         ax1.add_artist(ell1) # adde the ellipsoid patch to the axis
-        ax1.plot(data['207Pb/235U'],data['206Pb/238U'],'.k',markersize=1) # plot individual observations as dots
+        ax1.plot(pbu735,pbu638,'.k',markersize=1) # plot individual observations as dots
         ax2.add_artist(ell2)
-        ax2.plot(1/data['206Pb/238U'],data['207Pb/206Pb'],'.k',markersize=1)
+        ax2.plot(1/pbu638,pbpb76,'.k',markersize=1)
         
         ax1.set_xlabel('207/235',fontsize=6) # set xlabel
         ax1.set_ylabel('206/238',fontsize=6) # set ylabel
@@ -963,12 +991,12 @@ class plots(calc_fncs):
         ax2.set_ylabel('207/206',fontsize=6)
         ax1.tick_params(axis='both',labelsize=5) # set tick parameters on the axes
         ax2.tick_params(axis='both',labelsize=5)
-        # ax1.set_xlim(ell1p[0][0]-ell1p[1]/1.5,ell1p[0][0]+ell1p[1]/1.5) # set reasonable x and y limits based on the size of hte patch
-        # ax1.set_ylim(ell1p[0][1]-ell1p[2]/1.5,ell1p[0][1]+ell1p[2]/1.5)
-        # ax2.set_xlim(ell2p[0][0]-ell2p[1]/1.5,ell2p[0][0]+ell2p[1]/1.5)
-        # ax2.set_ylim(ell2p[0][1]-ell2p[2]/1.5,ell2p[0][1]+ell2p[2]/1.5)
+        ax1.set_xlim(ell1p[0][0]-ell1p[1]/1.5,ell1p[0][0]+ell1p[1]/1.5) # set reasonable x and y limits based on the size of hte patch
+        ax1.set_ylim(ell1p[0][1]-ell1p[2]/1.5,ell1p[0][1]+ell1p[2]/1.5)
+        ax2.set_xlim(ell2p[0][0]-ell2p[1]/1.5,ell2p[0][0]+ell2p[1]/1.5)
+        ax2.set_ylim(ell2p[0][1]-ell2p[2]/1.5,ell2p[0][1]+ell2p[2]/1.5)
         
-        fig1.tight_layout() # get it right keep it tight
+        fig1.tight_layout() 
         fig2.tight_layout()
         
         return fig1,fig2
@@ -1201,10 +1229,10 @@ class make_plots(param.Parameterized):
     
     accept_array_button = param.Action(lambda x: x.close_modal_setdata(),label='Accept Detector Array') # button that triggers the collector block anaalyte assignments to be accepted
     accept_interval_button = param.Action(lambda x: x.send_reduction(),label='Accept Interval') # button that triggers sample name to be accepted and ablation to be reduced
-    ablation_start = param.Number(51.1,bounds=(0,8600),softbounds=(50,90),step=0.1) # number that defines where ablation intervals starts
-    ablation_end = param.Number(76.3,bounds=(0,8600),step=0.1) # number that defines where ablation ends
-    background_start = param.Number(31.2,bounds=(0,8600),step=0.1) # number that defines where background starts
-    background_end = param.Number(46.3,bounds=(0,8600),step=0.1) # number that defines where background ends
+    ablation_start = param.Number(47.1,bounds=(0,10000),softbounds=(50,90),step=0.1) # number that defines where ablation intervals starts
+    ablation_end = param.Number(73.3,bounds=(0,10000),step=0.1) # number that defines where ablation ends
+    background_start = param.Number(26.2,bounds=(0,10000),step=0.1) # number that defines where background starts
+    background_end = param.Number(43.3,bounds=(0,10000),step=0.1) # number that defines where background ends
     
         
     def __init__(self,**params):
@@ -1372,6 +1400,7 @@ class make_plots(param.Parameterized):
         residuals_plot_pane = pn.pane.Bokeh(row(plots.residuals_plot(data_residuals_plot,self.regression_buttons,self.ablation_start,self.ablation_end,self.ablation_start_true)))
         
         Weth_ell,TW_ell = plots.ellipse_plot(data_residuals_plot, self.power, self.ablation_start, self.ablation_end, self.ablation_start_true, self.regression_buttons,self.counts_mode)
+            
         ellipse_tabs = pn.Tabs(('TW',TW_ell),('Weth.',Weth_ell),dynamic=True)
         
         
@@ -1525,10 +1554,10 @@ widgets={'ratio_buttons': pn.widgets.CheckBoxGroup,
          'counts_mode': pn.widgets.RadioButtonGroup,
          'export_data_button': pn.widgets.Button(name='DDDT!',button_type='success'),
          'analytes_': pn.widgets.CheckBoxGroup,
-         'ablation_start': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(51.1),step=0.1,name='Ablation Start'),
-         'ablation_end': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(76.3),step=0.1,name='Ablation End'),
-         'background_start': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(31.2),step=0.1,name='Background Start'),
-         'background_end': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(46.3),step=0.1,name='Background End')
+         'ablation_start': pn.widgets.EditableFloatSlider(start=0,end=10000,value=(47.1),step=0.1,name='Ablation Start'),
+         'ablation_end': pn.widgets.EditableFloatSlider(start=0,end=10000,value=(73.3),step=0.1,name='Ablation End'),
+         'background_start': pn.widgets.EditableFloatSlider(start=0,end=10000,value=(26.2),step=0.1,name='Background Start'),
+         'background_end': pn.widgets.EditableFloatSlider(start=0,end=10000,value=(43.3),step=0.1,name='Background End')
          }
 
     

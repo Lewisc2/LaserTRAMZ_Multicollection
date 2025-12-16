@@ -1,0 +1,10 @@
+*.xlsx
+*.csv
+*.xlsm
+*.xls
+*.xlsb
+*.cfg
+venv/
+testing.py
+site-packages/*
+
