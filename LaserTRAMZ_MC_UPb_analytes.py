@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon May  6 12:18:40 2024
-
 @author: ctlewis
 """
 
-
+# %% Import Dependables
 import pandas as pd
 pd.set_option('display.max_columns', None)
 import numpy as np
@@ -15,6 +13,7 @@ from bokeh.plotting import figure
 from bokeh.layouts import row, gridplot
 from bokeh.models import Range1d
 import panel as pn
+import holoviews as hv
 import statistics
 import param
 import sys
@@ -33,8 +32,10 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 
 volt_count_constant = 1.602e-8 #volts / count
 color_palette = bokeh.palettes.Muted9
-color_palette_regressions = bokeh.palettes.Dark2_3
+color_palette_regressions = bokeh.palettes.Light3
+hv.extension('bokeh')
 
+# %% Calculation Functions
 class calc_fncs:
     """ Class that holds all of the functions for reducing the time resolved data"""
     def __init__(self,*args):
@@ -723,7 +724,7 @@ class calc_fncs:
         return ell1_params,ell2_params,x1,y1,y2
     
         
-        
+# %% Plots functions     
 class plots(calc_fncs):
     """ Class that holds all of the functions for reducing the time resolved data"""
     def __init__(self,*args):
@@ -1004,7 +1005,7 @@ class plots(calc_fncs):
 
     
 
-# %%
+# %% Display Plots and Widgets
 class make_plots(param.Parameterized):
     """ class that parameterizes inputs and sends them to the above functions to be rendered in a GUI"""
     update_output_button = param.Action(lambda x: x.evaluate_output_data(),label='Evaluate Interval') # Button that triggers function to add output data
@@ -1325,7 +1326,7 @@ class make_plots(param.Parameterized):
         self.output_data.to_excel('output_lasertramZ.xlsx')
 
 
-# %%
+# %% Initialize and call app
 callapp = make_plots(name='Reduce Ablation Data')
 
 pn.extension('tabulator','mathjax')
