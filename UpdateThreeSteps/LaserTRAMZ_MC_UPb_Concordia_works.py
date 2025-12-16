@@ -6,7 +6,7 @@ Created on Fri Feb 24 15:15:39 2023
 @author: Chuck Lewis, Oregon State University
 """
 
-# %% Dependeables
+# %%
 import pandas as pd
 pd.set_option('display.max_columns', None)
 import numpy as np
@@ -31,7 +31,7 @@ color_palette_regressions = bokeh.palettes.Dark2_3
 markers = ['o','d','^','v']
 hv.extension('bokeh')
 
-# %% Constants and Certified Values
+# %%
 # define constants for reducing U-Pb data
 lambda_238 = 1.55125e-10 # Jaffey et al. 1971
 lambda_235 = 9.8485e-10 # Jaffey et al. 1971
@@ -124,7 +124,7 @@ drift_variable_map = {'206Pb/238U Age': ['206Pb/238U Age'],'207Pb/235U Age': ['2
                       '238U/235U Uncorrected': ['238U/235U'], '238U/235U Corrected': ['238U/235U c']
                       }
 
-# %% calc_fncs class
+# %%
 
 
 class calc_fncs:
@@ -260,8 +260,6 @@ class calc_fncs:
         # print('Projections Calling Method'+str(callingmethod))
         #     regression_var = '238U/206Pb_corrected'
         if callingmethod == 'get_pt_ages':
-            regression_var = '238U/206Pb c'
-        elif callingmethod == 'correct_standard_ages':
             regression_var = '238U/206Pb c'
         else:
             regression_var = '238U/206Pb'
@@ -606,7 +604,7 @@ class calc_fncs:
         
     
     def plot_drift(std_df, secondary_df, secondary_list, unknown_df, drift_var,
-                   std_txt,ThU_zrn,ThU_magma,Pb_Th_std_crct_selector,regression_selector,DThU_treatment,common_207206_input,common_207206_uncertainty,
+                   std_txt,ThU_zrn,ThU_magma,Pb_Th_std_crct_selector,regression_selector,DThU_treatment,common_207206_input,common_207206_error,
                    drift_treatment,drift_nearest):
         """
         Function that effectively plots the drift. Specifically, looks at the fractionation factor for the requested variable for all secondary standards
@@ -637,7 +635,7 @@ class calc_fncs:
             how to handle DTh/U for Th disequilibrium correction
         common_207206_input : TYPE
             used for testing. Currently serves no function..
-        common_207206_uncertainty : TYPE
+        common_207206_error : TYPE
             used for testing. Currently serves no function..
         drift_treatment : TYPE
             used for testing. Currently serves no function..
@@ -737,7 +735,7 @@ class calc_fncs:
             
 
 
-    def correct_standard_ages(df, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input, Pbcmethod):
+    def correct_standard_ages(df, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input):
         """
         Function used to calculate standard ages
 
@@ -786,132 +784,66 @@ class calc_fncs:
         # set up empty arrays to be filled for common lead corrections
         common_filter = np.zeros(len(df))
 
-        pb_m = df['207Pb/206Pb c']  # measured 207/206 - bias corrected if chosen in parameterization
-        
-        df['SK 206Pb/204Pb'] = stds_dict.get(std_txt)[2]
-        df['SK 207Pb/204Pb'] = stds_dict.get(std_txt)[3]
-        df['SK 207Pb/206Pb'] = df['SK 207Pb/204Pb'] / df['SK 206Pb/204Pb']
-        
-        
+        pb_m = df['207Pb/206Pb c']  # measured 207/206
         if Pb_Th_std_crct_selector == 'Common Pb':
-            UThstd, UThstd_rx = stds_dict.get(std_txt)[0], stds_dict.get(std_txt)[1] # get the U/Th ratio of standards and their host rocks
-            if Pbcmethod == '207Pb':
-                common = df['SK 207Pb/206Pb']
-                df['238U/206Pb c'] = 1 /df['206Pb/238U_unc'] # dummy so get_projections works
-                concordia_238_206, pts_pb_r = calc_fncs.get_projections(df,common_207206_input) # concordant points from projection to common Pb and Concordia
-                df['206Pb/238U c'] = 1/concordia_238_206 # get concordant 6/38 ratio from projections
-                df['238U/206Pb c'] = 1/df['206Pb/238U c']
-                
-                f_Pbc = (pb_m - pts_pb_r) / (common - pts_pb_r)
-                f_filter = np.zeros(len(common_filter))
-
-                for k in range(0,len(f_Pbc)):
-                    if f_Pbc[k] <= 0:
-                        f_filter[k] = 0
-                    else:
-                        f_filter[k] = f_Pbc[k]
-                f_Pbc = f_filter
-                df['f_Pbc'] = f_Pbc
-                df['207Pb/206Pbr'] = pts_pb_r
-                
-            elif Pbcmethod == '204Pb':
-                zeroslikedf = np.zeros(len(df))
-                df['f_Pbc'] = zeroslikedf
-                df['207Pb/206Pbr'] = zeroslikedf
-                df['206Pb/238U c'] = zeroslikedf
-                df['238U/206Pb c'] = zeroslikedf
-                df['Common Pb Correction'] = zeroslikedf
-                df['238U/206Pb c'] = 1 /df['206Pb/238U_unc'] # dummy so get_projections works
-                concordia_238_206, pts_pb_r = calc_fncs.get_projections(df,common_207206_input) # concordant points from projection to common Pb and Concordia - needed to pass into loop
-                for m in range(0,len(df)):
-                    if df.loc[m,'204Pb'] > 0:
-                        f_Pbc = df.loc[m,'SK 206Pb/204Pb']/df.loc[m,'206Pb/204Pb c']
-                        df.loc[m,'f_Pbc'] = f_Pbc
-                        df.loc[m,'207Pb/206Pbr'] = pb_m[m] - pb_m[m]*f_Pbc
-                        df.loc[m,'206Pb/238U c'] = df.loc[m,'206Pb/238U_unc']-(df.loc[m,'206Pb/238U_unc']*df.loc[m,'f_Pbc'])
-                        df.loc[m,'238U/206Pb c'] = 1/df.loc[m,'206Pb/238U c']
-                        df.loc[m,'Common Pb Correction'] = '204Pb Corrected'
-                    else:
-                        common = df.loc[m,'SK 207Pb/206Pb']
-                        df.loc[m,'206Pb/238U c'] = 1/concordia_238_206[m] # get concordant 6/38 ratio from projections
-                        df.loc[m,'238U/206Pb c'] = 1/df.loc[m,'206Pb/238U c']
-                        f_Pbc = (pb_m[m] - pts_pb_r[m]) / (common - pts_pb_r[m])
-                        if f_Pbc <= 0:
-                            f_Pbc = 0
-                        else:
-                            f_Pbc = f_Pbc
-                        df.loc[m,'f_Pbc'] = f_Pbc
-                        df.loc[m,'207Pb/206Pbr'] = pts_pb_r[m]
-                        df.loc[m,'Common Pb Correction'] = '204Pb b.d.l. - 207Pb Corrected'
-                
-                
+            df['SK 207Pb/206Pb'] = stds_dict.get(std_txt)[3] / stds_dict.get(std_txt)[2]
+            common = df['SK 207Pb/206Pb']
         elif Pb_Th_std_crct_selector == 'Common Pb + Th Disequil.':
-            UThstd, UThstd_rx = stds_dict.get(std_txt)[0], stds_dict.get(std_txt)[1] # get the U/Th ratio of standards and their host rocks
-            DThU = (1/UThstd)/(1/UThstd_rx) # get the D value
-            df['206Pb/238U c'] = df['206Pb/238U_unc'] - (lambda_238/lambda_230*(DThU-1)) # get the 6/38 ratio corrected for common Pb and Th disequil
-            df['238U/206Pb c'] = 1/df['206Pb/238U c']
-            if Pbcmethod == '207Pb':
-                common = df['SK 207Pb/206Pb']
-                df['238U/206Pb c'] = 1 /df['206Pb/238U_unc'] # dummy so get_projections works
-                concordia_238_206, pts_pb_r = calc_fncs.get_projections(df,common_207206_input) # concordant points from projection to common Pb and Concordia
-                df['206Pb/238U c'] = 1/concordia_238_206 # get concordant 6/38 ratio from projections
-                df['238U/206Pb c'] = 1/df['206Pb/238U c']
-                
-                f_Pbc = (pb_m - pts_pb_r) / (common - pts_pb_r)
-                f_filter = np.zeros(len(common_filter))
-
-                for k in range(0,len(f_Pbc)):
-                    if f_Pbc[k] <= 0:
-                        f_filter[k] = 0
-                    else:
-                        f_filter[k] = f_Pbc[k]
-                f_Pbc = f_filter
-                df['f_Pbc'] = f_Pbc
-                df['207Pb/206Pbr'] = pts_pb_r
-            elif Pbcmethod == '204Pb':
-                zeroslikedf = np.zeros(len(df))
-                df['f_Pbc'] = zeroslikedf
-                df['207Pb/206Pbr'] = zeroslikedf
-                df['206Pb/238U c'] = zeroslikedf
-                df['238U/206Pb c'] = zeroslikedf
-                df['Common Pb Correction'] = zeroslikedf
-                df['238U/206Pb c'] = 1 /df['206Pb/238U_unc'] # dummy so get_projections works
-                concordia_238_206, pts_pb_r = calc_fncs.get_projections(df,common_207206_input) # concordant points from projection to common Pb and Concordia - needed to pass into loop
-                for m in range(0,len(df)):
-                    if df.loc[m,'204Pb'] > 0:
-                        f_Pbc = df.loc[m,'SK 206Pb/204Pb']/df.loc[m,'206Pb/204Pb c']
-                        df.loc[m,'f_Pbc'] = f_Pbc
-                        df.loc[m,'207Pb/206Pbr'] = pb_m[m] - pb_m[m]*f_Pbc
-                        df.loc[m,'206Pb/238U c'] = df.loc[m,'206Pb/238U_unc']-(df.loc[m,'206Pb/238U_unc']*df.loc[m,'f_Pbc'])
-                        df.loc[m,'238U/206Pb c'] = 1/df.loc[m,'206Pb/238U c']
-                        df.loc[m,'Common Pb Correction'] = '204Pb Corrected'
-                    else:
-                        common = df.loc[m,'SK 207Pb/206Pb']
-                        df.loc[m,'206Pb/238U c'] = 1/concordia_238_206[m] # get concordant 6/38 ratio from projections
-                        df.loc[m,'238U/206Pb c'] = 1/df.loc[m,'206Pb/238U c']
-                        f_Pbc = (pb_m[m] - pts_pb_r[m]) / (common - pts_pb_r[m])
-                        if f_Pbc <= 0:
-                            f_Pbc = 0
-                        else:
-                            f_Pbc = f_Pbc
-                        df.loc[m,'f_Pbc'] = f_Pbc
-                        df.loc[m,'207Pb/206Pbr'] = pts_pb_r[m]
-                        df.loc[m,'Common Pb Correction'] = '204Pb b.d.l. - 207Pb Corrected'
+            # calculated Stacey-Kramers 207/206 overwriting the input 207/206 should manual values be requested
+            df['SK 207Pb/206Pb'] = stds_dict.get(std_txt)[3] / stds_dict.get(std_txt)[2]
+            common = df['SK 207Pb/206Pb']
+            
+        UThstd, UThstd_rx = stds_dict.get(std_txt)[0], stds_dict.get(std_txt)[1] # get the U/Th ratio of standards and their host rocks
+        DThU = (1/UThstd)/(1/UThstd_rx) # get the D value
+        df['206Pb/238U c'] = df['206Pb/238U_unc'] - (lambda_238/lambda_230*(DThU-1)) # get the 6/38 ratio corrected for common Pb and Th disequil
+        df['238U/206Pb c'] = 1/df['206Pb/238U c']
         
+        # get values projected onto concordia
+        concordia_238_206, pts_pb_r = calc_fncs.get_projections(df,common_207206_input)
+        df['206Pb/238U c'] = 1/concordia_238_206 # get concordant 6/38 ratio from projections
+        df['238U/206Pb c'] = 1/df['206Pb/238U c']
+        # if common Pb not feasible, assign zero. Retain value otherwise
+        for i in range(0,len(common)):
+            if common[i] <= 0:
+                common_filter[i] = 0
+            else:
+                common_filter[i] = common[i]
+                
+
+        # calculate fraction of common Pb
+        f_ = (pb_m - pts_pb_r) / (common - pts_pb_r)
+        # set up array to set f = 0 if point lies on or below Concordia (i.e., no common Pb present)
+        f = np.zeros(len(common_filter))
+
+        for k, j in zip(common_filter, range(0,len(f_))):
+            if k <= 0:
+                f[j] = 0
+            elif f_[j] < 0:
+                f[j] = 0
+            else:
+                f[j] = f_[j]
+
+        # append the calculations to the sample dataframe
+        df['207Pb/206Pbr'] = pts_pb_r
+        # get the average concordant 207Pb/206Pb ratio of standards
         avg_std_concordant76 = np.mean(df['207Pb/206Pbr'])
-        df['counts_pb206r'] = df['206Pb'] * (1-df['f_Pbc']) # calculate counts of radiogenic 206
-        df['206Pb/238Uc_age'] = np.log(df['206Pb/238U c'] + 1) / lambda_238 # calculate age of common Pb corrected ratio (concordant point) - get rid of these
-        df['206Pb/238UPbTh_age'] = np.log(df['206Pb/238U c'] + 1) / lambda_238 # dummy to fill df
+        # assign dataframe f
+        df['f'] = f
+
+        df['counts_pb206r'] = df['206Pb'] * (1-df['f']) # calculate counts of radiogenic 206
+        df['206Pb/238Upbc_numerical'] = 1 / df['238U/206Pb c']-(1/df['238U/206Pb c']*f) # calculate 6/38 numerically to make sure all calculations follow theory. Used for testing
+        df['206Pb/238Uc_age'] = np.log(df['206Pb/238U c'] + 1) / lambda_238 # calculate age of common Pb corrected ratio (concordant point)
+        df['206Pb/238UPbTh_age'] = np.log(df['206Pb/238U c'] + 1) / lambda_238 # calculate age of common Pb + Th disequil. ratio
         UTh_std_m = df['238U'].mean()/df['232Th'].mean() # Measured 38/32 ratio from standard
         
-        df['207Pb/235U c'] = df['207Pb/235U']-(df['207Pb/235U']*df['f_Pbc']) # common Pb corrected 7/35 ratio (assumes f value is same from 6/38..)
+        df['207Pb/235U c'] = df['207Pb/235U']-(df['207Pb/235U']*f) # common Pb corrected 7/35 ratio (assumes f value is same from 6/38..)
         df['207Pb/235U Age'] = np.log(df['207Pb/235U c'] + 1) / lambda_235 # calculate 7/35 age from common Pb corrected ratio
 
         avg_std_age = df['206Pb/238Uc_age'].mean() # average common Pb corrected standard age
         avg_std_age_Thcrct = df['206Pb/238UPbTh_age'].mean() # average common Pb + Th disequil. corrected standard age
         avg_std_age_207 = df['207Pb/235U Age'].mean() # average common Pb corrected 7/35 standard age
 
-        avg_std_ratio = 1/df['238U/206Pb c'].mean() # average 6/38 ratio from standard
+        avg_std_ratio = 1/df['238U/206Pb'].mean() # average 6/38 ratio from standard
         avg_std_ratio_Thcrct = df['206Pb/238U c'].mean() # average 6/38 ratio from standard, corrected for Common pb and Th disequil
         avg_std_ratio_207 = df['207Pb/235U c'].mean() # average 7/35 ratio from standard, corrected for common Pb
         
@@ -923,8 +855,8 @@ class calc_fncs:
     
     
     
-    def get_pt_ages(df, std, std_txt, df_secondary, secondary_std_RMRatioUnc, ThU_zrn, ThU_magma, Pb_Th_std_crct_selector, regression_selector, DThU_treatment, common_207206_input,common_207206_uncertainty,common_206204_input,common_206204_uncertainty,
-                    drift_treatment,drift_nearest,calc_RM_ratio_errors,callingmethod, mass_bias_pb, NIST_df,Pbcmethod):
+    def get_pt_ages(df, std, std_txt, df_secondary, secondary_std_RMRatioUnc, ThU_zrn, ThU_magma, Pb_Th_std_crct_selector, regression_selector, DThU_treatment, common_207206_input,common_207206_error,
+                    drift_treatment,drift_nearest,calc_RM_ratio_errors,callingmethod, mass_bias_pb, NIST_df):
         """
         Function that calculates ages of unknowns
 
@@ -948,8 +880,8 @@ class calc_fncs:
             How to handle D Th/U for Th disequilibrium correction
         common_207206_input : float
             value for common Pb 7/6 ratio in common Pb correction.
-        common_207206_uncertainty : float
-            value for uncertainty on common Pb 7/6 ratio in common Pb correction.
+        common_207206_error : float
+            value for error on common Pb 7/6 ratio in common Pb correction.
         drift_treatment : string
             user requested option on how drift should be handled.
         drift_nearest : integer
@@ -985,7 +917,7 @@ class calc_fncs:
                         nearest_NIST = NIST_df.iloc[(NIST_df['measurementindex']-df.loc[i,'measurementindex']).abs().argsort()[:drift_nearest]] # get nearest standards
                         std_set_i = nearest_stds # variable change to prevent premature overwriting
                         # get the fractionation factors and standard statistics
-                        frac_factor, frac_factor_207, frac_factor_76, tims_age, tims_error, tims_age_207, tims_error_207, avg_std_age, avg_std_age_Thcrct, avg_std_age_207, avg_std_ratio, avg_std_ratio_Thcrct, avg_std_ratio_207, avg_reg_err, avg_reg_err_207, UTh_std, UTh_std_m = calc_fncs.get_standard_fracfctr(std_set_i, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input, Pbcmethod)
+                        frac_factor, frac_factor_207, frac_factor_76, tims_age, tims_error, tims_age_207, tims_error_207, avg_std_age, avg_std_age_Thcrct, avg_std_age_207, avg_std_ratio, avg_std_ratio_Thcrct, avg_std_ratio_207, avg_reg_err, avg_reg_err_207, UTh_std, UTh_std_m = calc_fncs.get_standard_fracfctr(std_set_i, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input)
                         df.loc[i,'frac_factor_206238'] = frac_factor # 6/38 fractionation factor
                         df.loc[i,'frac_factor_207235'] = frac_factor_207 # 7/35 fractionation factor
                         df.loc[i,'frac_factor_207206'] = frac_factor_76
@@ -1042,7 +974,7 @@ class calc_fncs:
                     pass
                             
             else:
-                frac_factor, frac_factor_207, frac_factor_76, tims_age, tims_error, tims_age_207, tims_error_207, avg_std_age, avg_std_age_Thcrct, avg_std_age_207, avg_std_ratio, avg_std_ratio_Thcrct, avg_std_ratio_207, avg_reg_err, avg_reg_err_207, UTh_std, UTh_std_m = calc_fncs.get_standard_fracfctr(std, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input, Pbcmethod)
+                frac_factor, frac_factor_207, frac_factor_76, tims_age, tims_error, tims_age_207, tims_error_207, avg_std_age, avg_std_age_Thcrct, avg_std_age_207, avg_std_ratio, avg_std_ratio_Thcrct, avg_std_ratio_207, avg_reg_err, avg_reg_err_207, UTh_std, UTh_std_m = calc_fncs.get_standard_fracfctr(std, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input)
                 df['frac_factor_206238'] = frac_factor
                 df['frac_factor_207235'] = frac_factor_207
                 df['frac_factor_207206'] = frac_factor_76
@@ -1097,192 +1029,83 @@ class calc_fncs:
                         df['Epsilon 206Pb/238U'] = epipb206u238
             
             
-            df['238U/206Pb bias corrected'] = 1/((1/df['238U/206Pb'])*df['frac_factor_206238']) # 38/6 bias corrected ratio
-            df['206Pb/238U bias corrected'] = 1/df['238U/206Pb bias corrected']
-            df['207Pb/235U bias corrected'] = df['207Pb/235U']*df['frac_factor_207235'] # 7/35 bias corrected ratio
-            # if NIST used to calculate mass fractiationation, leave corrected values as is. Otherwise correct value by approximating 7/6 bias from zircon standard
-            if mass_bias_pb == 'By Age':
-                df['207Pb/206Pb c'] = df['207Pb/206Pb c']
-            else:
-                df['207Pb/206Pb c'] = df['207Pb/206Pb c']*df['frac_factor_207206']
+            df['238U/206Pb_corrected'] = 1/((1/df['238U/206Pb'])*df['frac_factor_206238']) # 38/6 bias corrected ratio
+            df['207Pb/235U_corrected'] = df['207Pb/235U']*df['frac_factor_207235'] # 7/35 bias corrected ratio
+            df['207Pb/206Pb c'] = df['207Pb/206Pb c']*df['frac_factor_207206']
             
         except KeyboardInterrupt:
             print('Interrupted Age Calculations')
         
-        pb_m = df['207Pb/206Pb c']
-        common_filter = np.zeros(len(df))
-        
-        if common_207206_input!= 0 and common_207206_uncertainty != 0:
-            common76 = df['Common 207Pb/206Pb']
-            common64 = df['Common 206Pb/204Pb']
-        else:
-            common76 = df['SK 207Pb/206Pb']
-            common64 = df['SK 206Pb/204Pb']
         
         if Pb_Th_std_crct_selector == 'Common Pb':
-            if Pbcmethod == '207Pb':
-                df['238U/206Pb c'] = 1 /df['206Pb/238U bias corrected'] # dummy so get_projections works
-                concordia_238_206, pts_pb_r = calc_fncs.get_projections(df,common_207206_input) # concordant points from projection to common Pb and Concordia
-                df['206Pb/238U BiasPbc Corrected'] = 1/concordia_238_206 # get concordant 6/38 ratio from projections
-                df['238U/206Pb BiasPbc Corrected'] = 1/df['206Pb/238U BiasPbc Corrected']
-                
-                f_Pbc = (pb_m - pts_pb_r) / (common76 - pts_pb_r)
-                f_filter = np.zeros(len(common_filter))
-
-                for k in range(0,len(f_Pbc)):
-                    if f_Pbc[k] <= 0:
-                        f_filter[k] = 0
-                    else:
-                        f_filter[k] = f_Pbc[k]
-                f_Pbc = f_filter
-                df['f_Pbc'] = f_Pbc
-                df['207Pb/206Pbr'] = pts_pb_r
-                df['Common Pb Correction'] = '207Pb Corrected'
-                
-            elif Pbcmethod == '204Pb':                    
-                zeroslikedf = np.zeros(len(df))
-                df['f_Pbc'] = zeroslikedf
-                df['207Pb/206Pbr'] = zeroslikedf
-                df['206Pb/238U BiasPbc Corrected'] = zeroslikedf
-                df['238U/206Pb BiasPbc Corrected'] = zeroslikedf
-                df['Common Pb Correction'] = zeroslikedf
-                df['238U/206Pb c'] = 1 /df['206Pb/238U bias corrected'] # dummy so get_projections works
-                concordia_238_206, pts_pb_r = calc_fncs.get_projections(df,common_207206_input) # concordant points from projection to common Pb and Concordia - needed to pass into loop
-                for m in range(0,len(df)):
-                    if df.loc[m,'204Pb'] > 0:
-                        f_Pbc = df.loc[m,'SK 206Pb/204Pb']/df.loc[m,'206Pb/204Pb c']
-                        df.loc[m,'f_Pbc'] = f_Pbc
-                        df.loc[m,'207Pb/206Pbr'] = pb_m[m] - pb_m[m]*f_Pbc
-                        df.loc[m,'206Pb/238U BiasPbc Corrected'] = df.loc[m,'206Pb/238U bias corrected']-(df.loc[m,'206Pb/238U bias corrected']*df.loc[m,'f_Pbc'])
-                        df.loc[m,'238U/206Pb BiasPbc Corrected'] = 1/df.loc[m,'206Pb/238U BiasPbc Corrected']
-                        df.loc[m,'Common Pb Correction'] = '204Pb Corrected'
-                    else:
-                        common = df.loc[m,'SK 207Pb/206Pb']
-                        df.loc[m,'206Pb/238U c'] = 1/concordia_238_206[m] # get concordant 6/38 ratio from projections
-                        df.loc[m,'238U/206Pb c'] = 1/df.loc[m,'206Pb/238U c']
-                        df.loc[m,'206Pb/238U BiasPbc Corrected'] = df.loc[m,'206Pb/238U c']-(df.loc[m,'206Pb/238U c']*df.loc[m,'f_Pbc'])
-                        df.loc[m,'238U/206Pb BiasPbc Corrected'] = 1/df.loc[m,'206Pb/238U BiasPbc Corrected']
-                        f_Pbc = (pb_m[m] - pts_pb_r[m]) / (common - pts_pb_r[m])
-                        if f_Pbc <= 0:
-                            f_Pbc = 0
-                        else:
-                            f_Pbc = f_Pbc
-                        df.loc[m,'f_Pbc'] = f_Pbc
-                        df.loc[m,'207Pb/206Pbr'] = pts_pb_r[m]
-                        df.loc[m,'Common Pb Correction'] = '204Pb b.d.l. - 207Pb Corrected'
-            df['238U/206Pb c'] = df['238U/206Pb BiasPbc Corrected']
-            df['206Pb/238U c'] = df['206Pb/238U BiasPbc Corrected']
-                
-                
+            df['206Pb/238U c'] = 1/df['238U/206Pb_corrected']
+            df['238U/206Pb c'] = 1/df['206Pb/238U c']
+            
         elif Pb_Th_std_crct_selector == 'Common Pb + Th Disequil.':
             if DThU_treatment == 'Zircon Input/Melt Input':
-                df['206Pb/238U BiasTh Corrected'] = 1/(df['238U/206Pb bias corrected'] - (lambda_238/lambda_230*((ThU_zrn/ThU_magma)-1))) # common Pb and Th disequil corrected 6/38 ratio
-                df['238U/206Pb c'] = 1/df['206Pb/238U BiasTh Corrected']
+                df['206Pb/238U c'] = 1/(df['238U/206Pb_corrected'] - (lambda_238/lambda_230*((ThU_zrn/ThU_magma)-1))) # common Pb and Th disequil corrected 6/38 ratio
+                df['238U/206Pb c'] = 1/df['206Pb/238U c']
+                
             elif DThU_treatment == 'Estimate or Offline/Melt Input':
-                df['206Pb/238U BiasTh Corrected'] = 1/(df['238U/206Pb bias corrected'] - (lambda_238/lambda_230*(((df['[Th/U]'])/ThU_magma)-1))) # common Pb and Th disequil corrected 6/38 ratio
-                df['238U/206Pb BiasTh Corrected'] = 1/df['206Pb/238U BiasTh Corrected']
-                
-            if Pbcmethod == '207Pb':
-                df['238U/206Pb c'] = 1 /df['206Pb/238U BiasTh Corrected']
-                concordia_238_206, pts_pb_r = calc_fncs.get_projections(df,common_207206_input) # concordant points from projection to common Pb and Concordia
-                df['206Pb/238U BiasThPbc Corrected'] = 1/concordia_238_206 # get concordant 6/38 ratio from projections
-                df['238U/206Pb BiasThPbc Corrected'] = 1/df['206Pb/238U BiasThPbc Corrected']
-                
-                f_Pbc = (pb_m - pts_pb_r) / (common76 - pts_pb_r)
-                f_filter = np.zeros(len(common_filter))
-
-                for k in range(0,len(f_Pbc)):
-                    if f_Pbc[k] <= 0:
-                        f_filter[k] = 0
-                    else:
-                        f_filter[k] = f_Pbc[k]
-                f_Pbc = f_filter
-                df['f_Pbc'] = f_Pbc
-                df['207Pb/206Pbr'] = pts_pb_r
-                df['Common Pb Correction'] = '207Pb Corrected'
-            elif Pbcmethod == '204Pb':
-                zeroslikedf = np.zeros(len(df))
-                df['f_Pbc'] = zeroslikedf
-                df['207Pb/206Pbr'] = zeroslikedf
-                df['206Pb/238U BiasThPbc Corrected'] = zeroslikedf
-                df['238U/206Pb BiasThPbc Corrected'] = zeroslikedf
-                df['Common Pb Correction'] = zeroslikedf
-                df['238U/206Pb c'] = 1 /df['206Pb/238U BiasTh Corrected']
-                concordia_238_206, pts_pb_r = calc_fncs.get_projections(df,common_207206_input) # concordant points from projection to common Pb and Concordia - needed to pass into loop
-                for m in range(0,len(df)):
-                    if df.loc[m,'204Pb'] > 0:
-                        f_Pbc = df.loc[m,'SK 206Pb/204Pb']/df.loc[m,'206Pb/204Pb c']
-                        df.loc[m,'f_Pbc'] = f_Pbc
-                        df.loc[m,'207Pb/206Pbr'] = pb_m[m] - pb_m[m]*f_Pbc
-                        df.loc[m,'206Pb/238U BiasThPbc Corrected'] = df.loc[m,'206Pb/238U BiasTh Corrected']-(df.loc[m,'206Pb/238U BiasTh Corrected']*df.loc[m,'f_Pbc'])
-                        df.loc[m,'238U/206Pb BiasThPbc Corrected'] = 1/df.loc[m,'206Pb/238U BiasThPbc Corrected']
-                        df.loc[m,'Common Pb Correction'] = '204Pb Corrected'
-                    else:
-                        common = df.loc[m,'SK 207Pb/206Pb']
-                        df.loc[m,'206Pb/238U BiasThPbc Corrected'] = 1/concordia_238_206[m] # get concordant 6/38 ratio from projections
-                        df.loc[m,'238U/206Pb BiasThPbc Corrected'] = 1/df.loc[m,'206Pb/238U BiasThPbc Corrected']
-                        f_Pbc = (pb_m[m] - pts_pb_r[m]) / (common - pts_pb_r[m])
-                        if f_Pbc <= 0:
-                            f_Pbc = 0
-                        else:
-                            f_Pbc = f_Pbc
-                        df.loc[m,'f_Pbc'] = f_Pbc
-                        df.loc[m,'207Pb/206Pbr'] = pts_pb_r[m]
-                        df.loc[m,'Common Pb Correction'] = '204Pb b.d.l. - 207Pb Corrected'
-            df['238U/206Pb c'] = df['238U/206Pb BiasThPbc Corrected']
-            df['206Pb/238U c'] = df['206Pb/238U BiasThPbc Corrected']
-
-
-        df['counts_pb206r'] = df['206Pb'] * (1-df['f_Pbc']) # counts of radiogenic 206
-        df['207Pb/235U c'] = df['207Pb/235U bias corrected']-(df['207Pb/235U bias corrected']*df['f_Pbc']) # numerically calculated 7/35 ratio
-        df['207Pb/235U Age'] = np.log(df['207Pb/235U c'] + 1) / lambda_235 # 7/35 common Pb corrected age
-        dagetot_207_list = []
-        # check if user input values for common Pb correction. If so, propagate those errors. If not, use default value
-        if common_207206_input!= 0 and common_207206_uncertainty != 0:
-            if Pbcmethod == '207Pb':
-                dagetot_207 = np.abs(df['207Pb/235U Age'])*(((df['tims_error_std_207']/2)/df['tims_age_207'])**2 + (df['avg_reg_err_207']/df['avg_std_ratio_207'])**2 +
-                                                                 (df['207Pb/235U Reg. err']/(df['207Pb/235U']))**2 + (lambda_235_2sig_percent/2/100)**2 +
-                                                                 (df['Common 207Pb/206Pb Uncertainty']/df['Common 207Pb/206Pb'])**2 +
-                                                                 (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
-                dagetot_207_list = dagetot_207
-            elif Pbcmethod == '204Pb':
-                for m in range(0,len(df)):
-                    if df.loc[m,'Common Pb Correction'] == '204Pb Corrected':
-                        dagetot_207 = np.abs(df.loc[m,'207Pb/235U Age'])*(((df.loc[m,'tims_error_std_207']/2)/df.loc[m,'tims_age_207'])**2 + (df.loc[m,'avg_reg_err_207']/df.loc[m,'avg_std_ratio_207'])**2 +
-                                                                         (df.loc[m,'207Pb/235U Reg. err']/(df.loc[m,'207Pb/235U']))**2 + (lambda_235_2sig_percent/2/100)**2 +
-                                                                         (df.loc[m,'Common 206Pb/204Pb Uncertainty']/df.loc[m,'Common 206Pb/204Pb'])**2 + (df.loc[m,'SE% 206Pb/204Pb']/100)**2 +
-                                                                         (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                    elif df.loc[m,'Common Pb Correction'] == '204Pb b.d.l. - 207Pb Corrected':
-                        dagetot_207 = np.abs(df.loc[m,'207Pb/235U Age'])*(((df.loc[m,'tims_error_std_207']/2)/df.loc[m,'tims_age_207'])**2 + (df.loc[m,'avg_reg_err_207']/df.loc[m,'avg_std_ratio_207'])**2 +
-                                                                         (df.loc[m,'207Pb/235U Reg. err']/(df.loc[m,'207Pb/235U']))**2 + (lambda_235_2sig_percent/2/100)**2 +
-                                                                         (df.loc[m,'Common 207Pb/206Pb Uncertainty']/df.loc[m,'Common 207Pb/206Pb'])**2 +
-                                                                         (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                    dagetot_207_list.append(dagetot_207)
-                        
+                df['206Pb/238U c'] = 1/(df['238U/206Pb_corrected'] - (lambda_238/lambda_230*(((df['[Th/U]'])/ThU_magma)-1))) # common Pb and Th disequil corrected 6/38 ratio
+                df['238U/206Pb c'] = 1/df['206Pb/238U c']
+        
+        # get points needed for correction
+        concordia_238_206, pts_pb_r = calc_fncs.get_projections(df, common_207206_input)
+        df['206Pb/238U c'] = 1/concordia_238_206 # projected 6/38 corrected ratio
+        df['238U/206Pb c'] = concordia_238_206
+        
+        # set up empty arrays to be filled for common lead corrections
+        common_filter = np.zeros(len(df['SK 207Pb/206Pb']))
+        
+        pb_m = df['207Pb/206Pb c']  # measured or externally calculated mass bias corrected 207/206
+        # if user input value for common Pb correction, assign that value, otherwise use default SK model
+        if common_207206_input!= 0 and common_207206_error != 0:
+            common = df['Common 207Pb/206Pb']
         else:
-            if Pbcmethod == '207Pb':
-                dagetot_207 = np.abs(df['207Pb/235U Age'])*(((df['tims_error_std_207']/2)/df['tims_age_207'])**2 + (df['avg_reg_err_207']/df['avg_std_ratio_207'])**2 +
-                                                                 (df['207Pb/235U Reg. err']/(df['207Pb/235U']))**2 + (lambda_235_2sig_percent/2/100)**2 +
-                                                                 ((SK74_2sig/2)/df['SK 207Pb/204Pb'])**2 + ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 +
-                                                                 (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
-                dagetot_207_list = dagetot_207
-            elif Pbcmethod == '204Pb':
-                for m in range(0,len(df)):
-                    if df.loc[m,'Common Pb Correction'] == '204Pb Corrected':
-                        dagetot_207 = np.abs(df.loc[m,'207Pb/235U Age'])*(((df.loc[m,'tims_error_std_207']/2)/df.loc[m,'tims_age_207'])**2 + (df.loc[m,'avg_reg_err_207']/df.loc[m,'avg_std_ratio_207'])**2 +
-                                                                         (df.loc[m,'207Pb/235U Reg. err']/(df.loc[m,'207Pb/235U']))**2 + (lambda_235_2sig_percent/2/100)**2 +
-                                                                         ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 + (df.loc[m,'SE% 206Pb/204Pb']/100)**2 +
-                                                                         (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                    elif df.loc[m,'Common Pb Correction'] == '204Pb b.d.l. - 207Pb Corrected':
-                        dagetot_207 = np.abs(df.loc[m,'207Pb/235U Age'])*(((df.loc[m,'tims_error_std_207']/2)/df.loc[m,'tims_age_207'])**2 + (df.loc[m,'avg_reg_err_207']/df.loc[m,'avg_std_ratio_207'])**2 +
-                                                                         (df.loc[m,'207Pb/235U Reg. err']/(df.loc[m,'207Pb/235U']))**2 + (lambda_235_2sig_percent/2/100)**2 +
-                                                                         ((SK74_2sig/2)/df['SK 207Pb/204Pb'])**2 + ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 +
-                                                                         (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                    dagetot_207_list.append(dagetot_207)
-                
-        df['207Pb/235U Age 1s'] = dagetot_207_list
+            common = df['SK 207Pb/206Pb']
+        # if common Pb value not feasible, assign zero. Retain value otherwise
+        for i in range(0,len(common)):
+            if common[i] <= 0:
+                common_filter[i] = 0
+            else:
+                common_filter[i] = common[i]
+
+        # calculate fraction of common Pb
+        f_ = (pb_m - pts_pb_r) / (common - pts_pb_r)
+        # set up array to set f = 0 if point lies on or below Concordia (i.e., no common Pb present)
+        f = np.zeros(len(f_))
+
+        for k, j in zip(common_filter, range(0,len(f_))):
+            if k <= 0:
+                f[j] = 0
+            elif f_[j] < 0:
+                f[j] = 0
+            else:
+                f[j] = f_[j]
+
+        # append the calculations to the sample dataframe
+        df['207Pb/206Pbr'] = pts_pb_r
+        df['f'] = f
+
+        df['counts_pb206r'] = df['206Pb'] * (1-df['f']) # counts of radiogenic 206
+        df['206Pb/238Upbc_numerical'] = 1 / df['238U/206Pb c']-(1/df['238U/206Pb c']*f) # numerically calculated 6/38 corrected ratio
+        
+        df['207Pb/235Upbc_corrected'] = df['207Pb/235U_corrected']-(df['207Pb/235U_corrected']*f) # numerically calculated 7/35 ratio
+        df['207Pb/235U Age'] = np.log(df['207Pb/235Upbc_corrected'] + 1) / lambda_235 # 7/35 common Pb corrected age
+        # check if user input values for common Pb correction. If so, propagate those errors. If not, use default value
+        if common_207206_input!= 0 and common_207206_error != 0:
+            dagetot_207 = np.abs(df['207Pb/235U Age'])*(((df['tims_error_std_207']/2)/df['tims_age_207'])**2 + (df['avg_reg_err_207']/df['avg_std_ratio_207'])**2 +
+                                                             (df['207Pb/235U Reg. err']/(df['207Pb/235U']))**2 + (lambda_235_2sig_percent/2/100)**2 +
+                                                             (df['Common 207Pb/206Pb Error']/df['Common 207Pb/206Pb'])**2 +
+                                                             (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
+        else:
+            dagetot_207 = np.abs(df['207Pb/235U Age'])*(((df['tims_error_std_207']/2)/df['tims_age_207'])**2 + (df['avg_reg_err_207']/df['avg_std_ratio_207'])**2 +
+                                                             (df['207Pb/235U Reg. err']/(df['207Pb/235U']))**2 + (lambda_235_2sig_percent/2/100)**2 +
+                                                             ((SK74_2sig/2)/df['SK 207Pb/204Pb'])**2 + ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 +
+                                                             (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
+        df['207Pb/235U Age 1s'] = dagetot_207
         # check which type of corrections user requests. propagate errors based on those
-        dagetot_list = []
         if Pb_Th_std_crct_selector == 'Common Pb':
             df['206Pb/238U Age'] = np.log(df['206Pb/238U c'] + 1) / lambda_238 # 6/38 common Pb corrected age
             # propagate errors
@@ -1290,108 +1113,75 @@ class calc_fncs:
             # error on estimation for common lead using 207 method. Uses conservaitve estimates of 1.0 for 206/204 and 0.3 for 207/204 (Mattionson, 1987)
             # total propagated error
             dage = np.abs(df['206Pb/238U Age'])*((df['206Pb/238U Reg. err']/df['206Pb/238U_unc'])**2 + (df['SE% 207Pb/206Pb']/100)**2)**(1/2) # analytical error
-            if common_207206_input!= 0 and common_207206_uncertainty != 0:
-                if Pbcmethod == '207Pb':
-                    dagetot = np.abs(df['206Pb/238U Age'])*(((df['tims_error_std']/2)/df['tims_age_std'])**2 + (df['avg_reg_err']/df['avg_std_ratio'])**2 +
-                                                                     (df['206Pb/238U Reg. err']/df['206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                     (df['Common 207Pb/206Pb Uncertainty']/df['Common 207Pb/206Pb'])**2 +
-                                                                     (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
-                    dagetot_list = dagetot
-                elif Pbcmethod == '204Pb':
-                    for m in range(0,len(df)):
-                        if df.loc[m,'Common Pb Correction'] == '204Pb Corrected':
-                            dagetot = np.abs(df.loc[m,'206Pb/238U Age'])*(((df.loc[m,'tims_error_std']/2)/df.loc[m,'tims_age_std'])**2 + (df.loc[m,'avg_reg_err']/df.loc[m,'avg_std_ratio'])**2 +
-                                                                             (df.loc[m,'206Pb/238U Reg. err']/df.loc[m,'206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                             (df.loc[m,'Common 206Pb/204Pb Uncertainty']/df.loc[m,'Common 206Pb/204Pb'])**2 + (df.loc[m,'SE% 206Pb/204Pb']/100)**2 +
-                                                                             (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                        elif df.loc[m,'Common Pb Correction'] == '204Pb b.d.l. - 207Pb Corrected':
-                            dagetot = np.abs(df.loc[m,'206Pb/238U Age'])*(((df.loc[m,'tims_error_std']/2)/df.loc[m,'tims_age_std'])**2 + (df.loc[m,'avg_reg_err']/df.loc[m,'avg_std_ratio'])**2 +
-                                                                             (df.loc[m,'206Pb/238U Reg. err']/df.loc[m,'206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                             (df.loc[m,'Common 207Pb/206Pb Uncertainty']/df.loc[m,'Common 207Pb/206Pb'])**2 +
-                                                                             (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                        dagetot_list.append(dagetot)
+            # fully propagated errors
+            if common_207206_input!= 0 and common_207206_error != 0:
+                dagetot = np.abs(df['206Pb/238U Age'])*(((df['tims_error_std']/2)/df['tims_age_std'])**2 + (df['avg_reg_err']/df['avg_std_ratio_Thcrct'])**2 +
+                                                                 (df['206Pb/238U Reg. err']/df['206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
+                                                                 (df['Common 207Pb/206Pb Error']/df['Common 207Pb/206Pb'])**2 +
+                                                                 (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
             else:
-                if Pbcmethod == '207Pb':
-                    dagetot = np.abs(df['206Pb/238U Age'])*(((df['tims_error_std']/2)/df['tims_age_std'])**2 + (df['avg_reg_err']/df['avg_std_ratio'])**2 +
+                dagetot = np.abs(df['206Pb/238U Age'])*(((df['tims_error_std']/2)/df['tims_age_std'])**2 + (df['avg_reg_err']/df['avg_std_ratio_Thcrct'])**2 +
+                                                                 (df['206Pb/238U Reg. err']/(df['206Pb/238U c']))**2 + (lambda_238_2sig_percent/2/100)**2 +
+                                                                 ((SK74_2sig/2)/df['SK 207Pb/204Pb'])**2 + ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 +
+                                                                 (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
+
+            df['206Pb/238U Age 1s (meas)'] = dage
+            df['206Pb/238U Age 1s (tot)'] = dagetot
+        elif Pb_Th_std_crct_selector == 'Common Pb + Th Disequil.':
+            if DThU_treatment == 'Zircon Input/Melt Input':
+                df['206Pb/238U Age'] = (np.log(df['206Pb/238U c'] + 1) / lambda_238) # common Pb and Th disequil corrected 6/38 age
+                # propagate errors
+                # error on fractionation factor. includes error from ID-TIMS and ICPMS
+                # error on age equation. error on decay constant includes 1.5* counting stats (Mattinson 1987)
+                # error on estimation for common lead using 207 method. Uses conservaitve estimates of 1.0 for 206/204 and 0.3 for 207/204 (Mattionson, 1987)
+                # UTh errors - only using errors from measured zircon here, as this will by and large be the largest error contribution
+                # should probably add error for U / Th in icpms glass analyses, though rock measurements will undoubtedly be incorrectly used by users of the
+                # program (in absence of other data) and so added error would overall be fairly misleading anyway
+                # errors on absolute concentrations from ID-TIMS are overall negligible and often not reported either.
+                # need to put in possibility of putting in errors on Th/U measurements
+                # total propagated error
+                dage = np.abs(df['206Pb/238U Age'])*((df['206Pb/238U Reg. err']/df['206Pb/238U_unc'])**2 + (df['SE% 207Pb/206Pb']/100)**2)**(1/2) # analytical error
+                # fully propagated errors
+                if common_207206_input!= 0 and common_207206_error != 0:
+                    dagetot = np.abs(df['206Pb/238U Age'])*(((df['tims_error_std']/2)/df['tims_age_std'])**2 + (df['avg_reg_err']/df['avg_std_ratio_Thcrct'])**2 +
+                                                                     (df['206Pb/238U Reg. err']/df['206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
+                                                                     (df['Common 207Pb/206Pb Error']/df['Common 207Pb/206Pb'])**2 +
+                                                                     (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
+                else:
+                    dagetot = np.abs(df['206Pb/238U Age'])*(((df['tims_error_std']/2)/df['tims_age_std'])**2 + (df['avg_reg_err']/df['avg_std_ratio_Thcrct'])**2 +
                                                                      (df['206Pb/238U Reg. err']/(df['206Pb/238U c']))**2 + (lambda_238_2sig_percent/2/100)**2 +
                                                                      ((SK74_2sig/2)/df['SK 207Pb/204Pb'])**2 + ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 +
                                                                      (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
-                    dagetot_list = dagetot
-                elif Pbcmethod =='204Pb':
-                    for m in range(0,len(df)):
-                        if df.loc[m,'Common Pb Correction'] == '204Pb Corrected':
-                            dagetot = np.abs(df.loc[m,'206Pb/238U Age'])*(((df.loc[m,'tims_error_std']/2)/df.loc[m,'tims_age_std'])**2 + (df.loc[m,'avg_reg_err']/df.loc[m,'avg_std_ratio'])**2 +
-                                                                             (df.loc[m,'206Pb/238U Reg. err']/df.loc[m,'206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                             ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 + (df.loc[m,'SE% 206Pb/204Pb']/100)**2 +
-                                                                             (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                        elif df.loc[m,'Common Pb Correction'] == '204Pb b.d.l. - 207Pb Corrected':
-                            dagetot = np.abs(df.loc[m,'206Pb/238U Age'])*(((df.loc[m,'tims_error_std']/2)/df.loc[m,'tims_age_std'])**2 + (df.loc[m,'avg_reg_err']/df.loc[m,'avg_std_ratio'])**2 +
-                                                                             (df.loc[m,'206Pb/238U Reg. err']/df.loc[m,'206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                             ((SK74_2sig/2)/df['SK 207Pb/204Pb'])**2 + ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 +
-                                                                             (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                        dagetot_list.append(dagetot)
-                    
 
-            df['206Pb/238U Age 1s (meas)'] = dage
-            df['206Pb/238U Age 1s (tot)'] = dagetot_list
-        elif Pb_Th_std_crct_selector == 'Common Pb + Th Disequil.':
-           df['206Pb/238U Age'] = np.log(df['206Pb/238U c'] + 1) / lambda_238 # 6/38 common Pb corrected age
-           # propagate errors
-           # error on age equation. error on decay constant includes 1.5* counting stats (Mattinson 1987)
-           # error on estimation for common lead using 207 method. Uses conservaitve estimates of 1.0 for 206/204 and 0.3 for 207/204 (Mattionson, 1987)
-           # total propagated error
-           dage = np.abs(df['206Pb/238U Age'])*((df['206Pb/238U Reg. err']/df['206Pb/238U_unc'])**2 + (df['SE% 207Pb/206Pb']/100)**2)**(1/2) # analytical error
-           if common_207206_input!= 0 and common_207206_uncertainty != 0:
-               if Pbcmethod == '207Pb':
-                   dagetot = np.abs(df['206Pb/238U Age'])*(((df['tims_error_std']/2)/df['tims_age_std'])**2 + (df['avg_reg_err']/df['avg_std_ratio_Thcrct'])**2 +
-                                                                    (df['206Pb/238U Reg. err']/df['206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                    (df['Common 207Pb/206Pb Uncertainty']/df['Common 207Pb/206Pb'])**2 +
-                                                                    (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
-                   dagetot_list = dagetot
-               elif Pbcmethod == '204Pb':
-                   for m in range(0,len(df)):
-                       if df.loc[m,'Common Pb Correction'] == '204Pb Corrected':
-                           dagetot = np.abs(df.loc[m,'206Pb/238U Age'])*(((df.loc[m,'tims_error_std']/2)/df.loc[m,'tims_age_std'])**2 + (df.loc[m,'avg_reg_err']/df.loc[m,'avg_std_ratio_Thcrct'])**2 +
-                                                                            (df.loc[m,'206Pb/238U Reg. err']/df.loc[m,'206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                            (df.loc[m,'Common 206Pb/204Pb Uncertainty']/df.loc[m,'Common 206Pb/204Pb'])**2 + (df.loc[m,'SE% 206Pb/204Pb']/100)**2 +
-                                                                            (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                       elif df.loc[m,'Common Pb Correction'] == '204Pb b.d.l. - 207Pb Corrected':
-                           dagetot = np.abs(df.loc[m,'206Pb/238U Age'])*(((df.loc[m,'tims_error_std']/2)/df.loc[m,'tims_age_std'])**2 + (df.loc[m,'avg_reg_err']/df.loc[m,'avg_std_ratio_Thcrct'])**2 +
-                                                                            (df.loc[m,'206Pb/238U Reg. err']/df.loc[m,'206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                            (df.loc[m,'Common 207Pb/206Pb Uncertainty']/df.loc[m,'Common 207Pb/206Pb'])**2 +
-                                                                            (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                       dagetot_list.append(dagetot)
-           else:
-               if Pbcmethod == '207Pb':
-                   dagetot = np.abs(df['206Pb/238U Age'])*(((df['tims_error_std']/2)/df['tims_age_std'])**2 + (df['avg_reg_err']/df['avg_std_ratio'])**2 +
-                                                                    (df['206Pb/238U Reg. err']/(df['206Pb/238U c']))**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                    ((SK74_2sig/2)/df['SK 207Pb/204Pb'])**2 + ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 +
-                                                                    (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
-                   dagetot_list = dagetot
-               elif Pbcmethod =='204Pb':
-                   for m in range(0,len(df)):
-                       if df.loc[m,'Common Pb Correction'] == '204Pb Corrected':
-                           dagetot = np.abs(df.loc[m,'206Pb/238U Age'])*(((df.loc[m,'tims_error_std']/2)/df.loc[m,'tims_age_std'])**2 + (df.loc[m,'avg_reg_err']/df.loc[m,'avg_std_ratio_Thcrct'])**2 +
-                                                                            (df.loc[m,'206Pb/238U Reg. err']/df.loc[m,'206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                            ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 + (df.loc[m,'SE% 206Pb/204Pb']/100)**2 +
-                                                                            (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                       elif df.loc[m,'Common Pb Correction'] == '204Pb b.d.l. - 207Pb Corrected':
-                           dagetot = np.abs(df.loc[m,'206Pb/238U Age'])*(((df.loc[m,'tims_error_std']/2)/df.loc[m,'tims_age_std'])**2 + (df.loc[m,'avg_reg_err']/df.loc[m,'avg_std_ratio_Thcrct'])**2 +
-                                                                            (df.loc[m,'206Pb/238U Reg. err']/df.loc[m,'206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
-                                                                            ((SK74_2sig/2)/df['SK 207Pb/204Pb'])**2 + ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 +
-                                                                            (df.loc[m,'SE% 207Pb/206Pb']/100)**2)**(1/2)
-                       dagetot_list.append(dagetot)
-                   
-
-           df['206Pb/238U Age 1s (meas)'] = dage
-           df['206Pb/238U Age 1s (tot)'] = dagetot_list
-
+                df['206Pb/238U Age 1s (meas)'] = dage
+                df['206Pb/238U Age 1s (tot)'] = dagetot
+            elif DThU_treatment == 'Estimate or Offline/Melt Input':
+                df['206Pb/238U Age'] = (np.log(df['206Pb/238U c'] + 1) / lambda_238)
+                # propagate errors
+                # error on fractionation factor. includes error from ID-TIMS and ICPMS
+                # error on age equation. error on decay constant includes 1.5* counting stats (Mattinson 1987)
+                # error on estimation for common lead using 207 method. Uses conservaitve estimates of 1.0 for 206/204 and 0.3 for 207/204 (Mattionson, 1987)
+                # UTh errors
+                # total propagated error
+                dage = np.abs(df['206Pb/238U Age'])*((df['206Pb/238U Reg. err']/df['206Pb/238U_unc'])**2 + (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
+                if common_207206_input!= 0 and common_207206_error != 0:
+                    dagetot = np.abs(df['206Pb/238U Age'])*((df['avg_reg_err']/df['avg_std_ratio_Thcrct'])**2 +
+                                                                     (df['206Pb/238U Reg. err']/df['206Pb/238U c'])**2 + (lambda_238_2sig_percent/2/100)**2 +
+                                                                     (df['Common 207Pb/206Pb Error']/df['Common 207Pb/206Pb'])**2 +
+                                                                     (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
+                else:
+                    dagetot = np.abs(df['206Pb/238U Age'])*(((df['tims_error_std']/2)/df['tims_age_std'])**2 + (df['avg_reg_err']/df['avg_std_ratio_Thcrct'])**2 +
+                                                                     (df['206Pb/238U Reg. err']/(df['206Pb/238U c']))**2 + (lambda_238_2sig_percent/2/100)**2 +
+                                                                     ((SK74_2sig/2)/df['SK 207Pb/204Pb'])**2 + ((SK64_2sig/2)/df['SK 206Pb/204Pb'])**2 +
+                                                                     (df['SE% 207Pb/206Pb']/100)**2)**(1/2)
+                df['206Pb/238U Age 1s (meas)'] = dage
+                df['206Pb/238U Age 1s (tot)'] = dagetot
 
         return df
         
         
 
-    def correct_sample_ages(df, std, std_txt, df_secondary, secondary_std_RMRatioUnc, ThU_zrn, ThU_magma, Pb_Th_std_crct_selector, regression_selector, DThU_treatment, common_207206_input,common_207206_uncertainty,common_206204_input,common_206204_uncertainty,drift_treatment,drift_nearest,calc_RM_ratio_errors, mass_bias_pb, NIST_df, Pbcmethod):
+    def correct_sample_ages(df, std, std_txt, df_secondary, secondary_std_RMRatioUnc, ThU_zrn, ThU_magma, Pb_Th_std_crct_selector, regression_selector, DThU_treatment, common_207206_input,common_207206_error,drift_treatment,drift_nearest,calc_RM_ratio_errors, mass_bias_pb, NIST_df):
         """
         Function used to correct send unknown samples to the methods that get the fully corrected ages. 
         Essentially a funnel for handling the different data types in the unkown points estimates, unknown ellipsoids, and standard points estimates / ellipsoids
@@ -1416,7 +1206,7 @@ class calc_fncs:
             How to deal with D Th/U for disequilibrium correction
         common_207206_input : float
             value for common Pb 7/6 ratio in common Pb correction.
-        common_207206_uncertainty : float
+        common_207206_error : float
             value for error on common Pb 7/6 ratio in common Pb correction.
         drift_treatment : string
             user requested option on how drift should be handled.
@@ -1433,14 +1223,14 @@ class calc_fncs:
         print('METHOD CALLING GET PT AGES: ')
         print(str(callingmethod))
         pt_ages = calc_fncs.get_pt_ages(df, std, std_txt, df_secondary, secondary_std_RMRatioUnc, ThU_zrn, ThU_magma, Pb_Th_std_crct_selector, regression_selector, 
-                                        DThU_treatment, common_207206_input,common_207206_uncertainty,common_206204_input,common_206204_uncertainty,drift_treatment,drift_nearest,calc_RM_ratio_errors,callingmethod, mass_bias_pb, NIST_df, Pbcmethod)
+                                        DThU_treatment, common_207206_input,common_207206_error,drift_treatment,drift_nearest,calc_RM_ratio_errors,callingmethod, mass_bias_pb, NIST_df)
         
         
         return pt_ages
 
             
 
-    def get_standard_fracfctr(std, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input, Pbcmethod):
+    def get_standard_fracfctr(std, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input):
         """
         function that gets fractionantion factors and standard statistics or accepted values
         first set of accepted ages and errors are 206/238 ages. second are 207/235 ages
@@ -1498,7 +1288,7 @@ class calc_fncs:
         """
         # correct standard ages, get frac factors, etc
         avg_std_age, avg_std_age_Thcrct, avg_std_age_207, avg_std_ratio, avg_std_ratio_Thcrct, avg_std_ratio_207, avg_reg_err, avg_reg_err_207, UTh_std, UTh_std_m, avg_std_concordant76 = \
-            calc_fncs.correct_standard_ages(std, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input,Pbcmethod)
+            calc_fncs.correct_standard_ages(std, std_txt, Pb_Th_std_crct_selector, regression_selector, common_207206_input)
         tims_age = accepted_ages.get(std_txt)[0] # get accepted from dictionary
         tims_error = TIMS_errors.get(std_txt)[0]
         tims_age_207 = accepted_ages.get(std_txt)[1]
@@ -1665,7 +1455,7 @@ class calc_fncs:
         else:
             pass
 
-# %% finalize_ages class
+# %%
 class finalize_ages(param.Parameterized):
 
     """ class that parameterizes inputs and sends them to the above functions to be rendered in a GUI"""
@@ -1695,9 +1485,7 @@ class finalize_ages(param.Parameterized):
     drift_selector = param.Selector(default='By Age',objects=['By Age','By Mass Bias and Age','None'],precedence=-1)
     drift_nearest_amount = param.Number(4,precedence=-1)
     common_207206_input = param.Number()
-    common_207206_uncertainty = param.Number()
-    common_206204_input = param.Number()
-    common_206204_uncertainty = param.Number()
+    common_207206_error = param.Number()
     ThU_zrn_input = param.Number()
     ThU_magma_input = param.Number()
     DThU_treatment = param.Selector(default='Zircon Input/Melt Input', objects=['Zircon Input/Melt Input', 'Estimate or Offline/Melt Input'])
@@ -1708,7 +1496,6 @@ class finalize_ages(param.Parameterized):
     mass_bias_pb_ratio = param.Selector(objects=['206Pb/204Pb','207Pb/204Pb','208Pb/204Pb','207Pb/206Pb'],precedence=-1)
     mass_bias_thu = param.Selector(objects=['Primary 238U/235U','NIST-614','NIST-612','NIST-610','None'],precedence=-1)
     mass_bias_thu_ratio = param.Selector(objects=['238U/235U'],precedence=-1)
-    pbc_correction_method = param.Selector(objects=['207Pb','204Pb'],precedence=-1)
 
     update_output_button = param.Action(lambda x: x.add_output_data(), label='Approve Data')
     export_data_button = param.Action(lambda x: x.export_data(), label='DDDT!')
@@ -1724,8 +1511,8 @@ class finalize_ages(param.Parameterized):
         self.widgets = pn.Param(self, parameters=['label_toggle', 'regression_selector','calc_RM_ratio_errors','drift_analyte_dropdown','secondary_std_selector',
                                                   'update_output_button', 'export_data_button', 'export_TWplot_button',
                                                   'x_axis_TW','y_axis_TW','x_axis_Weth','y_axis_Weth',
-                                                  'common_207206_input', 'common_207206_uncertainty','common_206204_input','common_206204_uncertainty',
-                                                  'ThU_zrn_input', 'ThU_magma_input','concentration_estimator','DThU_treatment','pbc_correction_method'])
+                                                  'common_207206_input', 'common_207206_error',
+                                                  'ThU_zrn_input', 'ThU_magma_input','concentration_estimator','DThU_treatment'])
 
     @pn.depends('file_path',watch=True)
     def _uploadfile(self):
@@ -1749,8 +1536,7 @@ class finalize_ages(param.Parameterized):
             fastgrid_layout.modal[4].append(pn.Column(pn.Row(pn.pane.Markdown('Pb/Pb Mass Bias Standard: '),pn.widgets.RadioButtonGroup(name='Mass Bias Pb',options=['By Age','NIST-614','NIST-612','NIST-610'])),
                                                       pn.Row(pn.pane.Markdown('NIST Pb/Pb Mass Bias Ratio: '),pn.widgets.RadioButtonGroup(name='Mass Bias Pb Ratio',options=['206Pb/204Pb','207Pb/204Pb','208Pb/204Pb','207Pb/206Pb'])),
                                                       pn.Row(pn.pane.Markdown('Actinide Mass Bias Standard: '),pn.widgets.RadioButtonGroup(name='Mass Bias U & Th',options=['Primary 238U/235U','NIST-614','NIST-612','NIST-610','None'])),
-                                                      pn.Row(pn.pane.Markdown('Actinide Mass Bias Ratio: '),pn.widgets.RadioButtonGroup(name='Mass Bias U & Th Ratio',options=['238U/235U'])),
-                                                      pn.Row(pn.pane.Markdown('Pbc Correction Method: '),pn.widgets.RadioButtonGroup(name='Pbc Correction Method',options=['207Pb','204Pb'])),
+                                                      pn.Row(pn.pane.Markdown('Actinide Mass Bias Ratio: '),pn.widgets.RadioButtonGroup(name='Mass Bias U & Th Ratio',options=['238U/235U']))
                                                       )
                                             )
             fastgrid_layout.modal[5].append(pn.Column(pn.Row(pn.pane.Markdown('Calculate Drift: '),pn.widgets.RadioButtonGroup(name='Drift Type',options=['By Age','None'])),
@@ -1771,7 +1557,7 @@ class finalize_ages(param.Parameterized):
                 
     @pn.depends('regression_selector', 'drift_selector','drift_nearest_amount',
                 'text_standard_selector','text_secondary_selector','secondary_std_selector',
-                'mass_bias_pb','mass_bias_pb_ratio','mass_bias_thu','mass_bias_thu_ratio','pbc_correction_method',
+                'mass_bias_pb','mass_bias_pb_ratio','mass_bias_thu','mass_bias_thu_ratio',
                 'Pb_Th_std_crct_selector','ThU_zrn_input','ThU_magma_input','calc_RM_ratio_errors')
     def _accept_reduction_parameters(self,event=None):
         u_pb_ratio_treatment = fastgrid_layout.modal[3][0][0][1].value
@@ -1780,7 +1566,6 @@ class finalize_ages(param.Parameterized):
         pb_bias_ratio = fastgrid_layout.modal[4][0][1][1].value
         u_bias_type = fastgrid_layout.modal[4][0][2][1].value
         u_bias_ratio = fastgrid_layout.modal[4][0][3][1].value
-        Pbcmethod = fastgrid_layout.modal[4][0][4][1].value
         primary_std = fastgrid_layout.modal[0][0][0].value
         secondary_std_RMRatioUnc = fastgrid_layout.modal[1][0][0].value
         drift_treatment = fastgrid_layout.modal[5][0][0][1].value
@@ -1804,13 +1589,11 @@ class finalize_ages(param.Parameterized):
         self.mass_bias_pb_ratio = pb_bias_ratio
         self.u_bias_type = u_bias_type
         self.mass_bias_thu_ratio = u_bias_ratio
-        self.Pbcmethod = Pbcmethod
         self.calc_RM_ratio_errors = RMratioerrortype
         self.DThU_treatment = DThU_treatment
         self.outputdataformat = outputdataformat
         
-        print('Chosen Pb Correction Method')
-        print(Pbcmethod)
+        
         
         
         if '206Pb/238U 1st Order' in self.input_data.columns and u_pb_ratio_treatment == '1st Order':
@@ -1861,17 +1644,9 @@ class finalize_ages(param.Parameterized):
                 m204 = mass_dict.get('204Pb')
                 pb_f_64 = pb_f = np.log(accepted_pb_64/np.mean(pb_bias_std_df['206Pb/204Pb']))/np.log(m206/m204)
                 self.input_data['206Pb/204Pb c'] = self.input_data['206Pb/204Pb']*(m206/m204)**pb_f_64
-            else:
-                self.input_data['207Pb/206Pb c'] = self.input_data['207Pb/206Pb']*(high_mass_pb_wt/low_mass_pb_wt)**pb_f
-                accepted_pb_64 = pb_bias_dict[pb_bias_std]['206Pb/204Pb']
-                m206 = mass_dict.get('206Pb')
-                m204 = mass_dict.get('204Pb')
-                pb_f_64 = pb_f = np.log(accepted_pb_64/np.mean(pb_bias_std_df['206Pb/204Pb']))/np.log(m206/m204)
-                self.input_data['206Pb/204Pb c'] = self.input_data['206Pb/204Pb']*(m206/m204)**pb_f_64
             print('Pb Bias Calculated Externally')
         else:
             self.input_data['207Pb/206Pb c'] = self.input_data['207Pb/206Pb']
-            self.input_data['206Pb/204Pb c'] = self.input_data['206Pb/204Pb']
             print('Pb Bias Calculated by Ages')
 
             
@@ -1941,17 +1716,13 @@ class finalize_ages(param.Parameterized):
                 s_df['SK 206Pb/204Pb'] = stds_dict.get(s)[2]
                 s_df['SK 207Pb/204Pb'] = stds_dict.get(s)[3]
                 s_common207206 = stds_dict.get(s)[3] / stds_dict.get(s)[2]
-                s_common207206_uncertainty = 1e-50
+                s_common207206_error = 1e-50
                 s_df['SK 207Pb/206Pb'] = s_common207206
                 s_df['Common 207Pb/206Pb'] = s_common207206
-                s_df['Common 207Pb/206Pb Uncertainty'] = s_common207206_uncertainty
-                s_common206204 = stds_dict.get(s)[2]
-                s_common206204_uncertainty = 1e-50
-                s_df['Common 206Pb/204Pb'] = s_common206204
-                s_df['Common 206Pb/204Pb Uncertainty'] = s_common206204_uncertainty
+                s_df['Common 207Pb/206Pb Error'] = s_common207206_error
                 secondary_ages = calc_fncs.correct_sample_ages(s_df,df_primary,primary_std,df_secondary,secondary_std_RMRatioUnc,ThUzirconratio_stds,ThUmagmaratio_stds,commonPb_Thdisequil_treatment_stds,
-                                                               u_pb_ratio_treatment,DThU_treatment,s_common207206,s_common207206_uncertainty,s_common206204,s_common206204_uncertainty,
-                                                               drift_treatment,drift_nearest,RMratioerrortype, mass_bias_pb, NIST_df, Pbcmethod)
+                                                               u_pb_ratio_treatment,DThU_treatment,s_common207206,s_common207206_error,
+                                                               drift_treatment,drift_nearest,RMratioerrortype, mass_bias_pb, NIST_df)
                 if self.output_secondary_data is None:
                     self.output_secondary_data = secondary_ages
                 else:
@@ -1965,7 +1736,7 @@ class finalize_ages(param.Parameterized):
     @pn.depends('input_data', 'text_standard_selector','output_secondary_data', 'secondary_std_selector',
                 'drift_selector', 'drift_nearest_amount', 'drift_analyte_dropdown',
                 'mass_bias_pb','mass_bias_thu','regression_selector',
-                'text_standard_selector','ThU_zrn_input','ThU_magma_input','Pb_Th_std_crct_selector','DThU_treatment','common_207206_input','common_207206_uncertainty'
+                'text_standard_selector','ThU_zrn_input','ThU_magma_input','Pb_Th_std_crct_selector','DThU_treatment','common_207206_input','common_207206_error'
                 )
     def call_drift_plot(self):
         if self.text_sample_selector != 'Input Sample ID':
@@ -1974,20 +1745,18 @@ class finalize_ages(param.Parameterized):
             return calc_fncs.plot_drift(chosen_std, self.output_secondary_data, self.secondary_std_selector, 
                                         unknown_df, self.drift_analyte_dropdown,
                                         self.text_standard_selector, self.ThU_zrn_input, self.ThU_magma_input, self.Pb_Th_std_crct_selector, self.regression_selector,
-                                        self.DThU_treatment,self.common_207206_input,self.common_207206_uncertainty,
+                                        self.DThU_treatment,self.common_207206_input,self.common_207206_error,
                                         self.drift_selector,self.drift_nearest_amount
                                         )
         else:
             pass
 
-    @pn.depends('input_data', 'common_207206_input', 'common_207206_uncertainty', 'common_206204_input','common_206204_uncertainty', 'text_sample_selector', watch=True)
+    @pn.depends('input_data', 'common_207206_input', 'common_207206_error', 'text_sample_selector', watch=True)
     def _updateCommonPb(self):
         if self.text_sample_selector != 'Input Sample ID':
             if self.common_207206_input != 0:
                 self.input_data['Common 207Pb/206Pb'] = self.common_207206_input
-                self.input_data['Common 207Pb/206Pb Uncertainty'] = self.common_207206_uncertainty
-                self.input_data['Common 206Pb/204Pb'] = self.common_206204_input
-                self.input_data['Common 206Pb/204Pb Uncertainty'] = self.common_206204_uncertainty
+                self.input_data['Common 207Pb/206Pb Error'] = self.common_207206_error
             self.input_data['SK 206Pb/204Pb'] = 11.152 + 9.74*(np.exp(lambda_238*3.7e9)-np.exp(lambda_238*self.input_data['206Pb/238U_age_init']))
             self.input_data['SK 207Pb/204Pb'] = 12.998 + 9.74/137.82*(np.exp(lambda_235*3.7e9)-np.exp(lambda_235*self.input_data['206Pb/238U_age_init']))
             self.input_data['SK 207Pb/206Pb'] = self.input_data['SK 207Pb/204Pb'] / self.input_data['SK 206Pb/204Pb']
@@ -2016,7 +1785,7 @@ class finalize_ages(param.Parameterized):
 
 
     @pn.depends('input_data', 'text_sample_selector', 'text_standard_selector', 'output_secondary_data', 'text_secondary_selector','label_toggle', 'ThU_zrn_input', 'ThU_magma_input', 'Pb_Th_std_crct_selector', 'regression_selector',
-                'DThU_treatment', 'common_207206_input', 'common_207206_uncertainty', 'calc_RM_ratio_errors')
+                'DThU_treatment', 'common_207206_input', 'common_207206_error', 'calc_RM_ratio_errors')
     def call_boxplot(self):
         pass
         # if self.text_sample_selector != 'Input Sample ID':
@@ -2167,7 +1936,7 @@ class finalize_ages(param.Parameterized):
         chosen_std = chosen_std.reset_index(drop=True)
         chosen_secondary_data = chosen_secondary_data.reset_index(drop=True)
         ages = calc_fncs.correct_sample_ages(data_to_update, chosen_std, self.text_standard_selector, chosen_secondary_data, self.text_secondary_selector, self.ThU_zrn_input, self.ThU_magma_input, self.Pb_Th_std_crct_selector, self.regression_selector,
-                                             self.DThU_treatment,self.common_207206_input,self.common_207206_uncertainty,self.common_206204_input,self.common_206204_uncertainty,self.drift_selector,self.drift_nearest_amount,self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df, self.Pbcmethod)
+                                             self.DThU_treatment,self.common_207206_input,self.common_207206_error,self.drift_selector,self.drift_nearest_amount,self.calc_RM_ratio_errors, self.mass_bias_pb, NIST_df)
         if self.output_data is None:
             self.output_data = ages
         else:
@@ -2251,7 +2020,7 @@ class finalize_ages(param.Parameterized):
 
 reduce_ages = finalize_ages(name='Reduce Ages')
 
-# %% deploy panel
+# %%
 
 pn.extension('tabulator','mathjax')
 

@@ -1,11 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Thu Jan  2 15:20:07 2025
+Created on Fri May  2 14:53:53 2025
 
 @author: ctlewis
 """
-
 
 import pandas as pd
 pd.set_option('display.max_columns', None)
@@ -13,8 +12,8 @@ import numpy as np
 import bokeh
 from bokeh.plotting import figure
 from bokeh.layouts import row, gridplot
-from bokeh.models import Range1d
 import panel as pn
+import param
 import statistics
 import param
 import sys
@@ -31,10 +30,10 @@ from matplotlib.patches import Ellipse
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
-volt_count_constant = 1.602e-8 #volts / count
 color_palette = bokeh.palettes.Muted9
 color_palette_regressions = bokeh.palettes.Dark2_3
 
+# %%
 class calc_fncs:
     """ Class that holds all of the functions for reducing the time resolved data"""
     def __init__(self,*args):
@@ -693,8 +692,8 @@ class calc_fncs:
         
         return ell1_params,ell2_params
     
-        
-# %%        
+# %%
+
 class plots(calc_fncs):
     """ Class that holds all of the functions for reducing the time resolved data"""
     def __init__(self,*args):
@@ -974,210 +973,12 @@ class plots(calc_fncs):
         return fig1,fig2
 
 # %%
-class define_analyses(param.Parameterized):
-    accept_array_button = param.Action(lambda x: x.accept_array(),label='Accept Detector Array') # button that triggers the collector block anaalyte assignments to be accepted
-    analytes_ = param.ListSelector(default=[],objects=[]) # set up empty list to be populated with analytes in order to choose which gets plotted
-    
-    add_reduction_button = param.Action(lambda x: x.add_reduction(), label='Add Reduction') # button that addes current interval (background + ablation) to get reduced. Triggers modal to name analysis
-    store_interval_button = param.Action(lambda x: x.store_interval(),label='Store Interval') # button that triggers sample name and selected interval to be stored
-    
-    jump_sliders_button = param.Action(lambda x: x.jump_sliders(),label='Jump Sliders') # button that triggers sliders to jump forward
-    jump_time = param.Number(53) # number that defines how far to jump sliders when function is triggered
-    
-    input_data = param.DataFrame(precedence=-1) # initialize dataframe to be populated with uploaded data
-    file_path = param.String(default='Insert File Path') # string that will be populated with file path
-    stored_intervals_data = param.DataFrame(precedence=-1) # initialize dataframe to be populated with output data
-    integration_time = param.Number(default=0.01,precedence=-1)
-    
-    analysis_start = param.Number(51.1,bounds=(0,8600),softbounds=(50,90),step=0.1) # number that defines where analysis interval starts
-    analysis_end = param.Number(76.3,bounds=(0,8600),step=0.1) # number that defines where analysis interval ends
-    logcountsdata = param.Boolean(False,label='Log Intensities') # set up boolean button to choose whether or not 
-    
-    def __init__(self,**params):
-        super().__init__(**params)
-        self.file_input_widget = pn.Param(self.param.input_data)
-        self.stored_intervals_widget = pn.Param(self.param.stored_intervals_data)
-        self.output_data_ellipse_widget = pn.Param(self.param.output_data_ellipse)
-        self.widgets = pn.Param(self,parameters=['accept_array_button','analytes_',
-                                                 'add_reduction_button','store_interval_button',
-                                                 'jump_sliders_button','jump_time',
-                                                 'file_path','integration_time',
-                                                 'analysis_start','analysis_end','logcountsdata'
-                                                 ])
-        
-    @pn.depends('file_path',watch=True)
-    def _uploadfile(self):
-        """
-        Function that handles the output Nu file and uploads raw data into software
-        -------
-        Opens a modal that allows the user to input their collector array
-
-        """
-        if self.file_path != 'Insert File Path':
-            df = pd.read_excel(self.file_path,header=None) # read file
-            self.integration_time = df.iloc[69,1] # grab the integration time used for the analytical session
-            self.input_data = df # assign input file to the initialized dataframe
-            self.input_data.columns = self.input_data.iloc[76] # assign columns to the list of high/lowmass column (e.g., L204) output by the Nu
-            self.input_data = self.input_data.drop(columns=['Cycle','Section','Type','Trigger Status']) # drop columns with these titles
-            self.input_data = self.input_data.drop(self.input_data.index[0:77],axis=0) # drop rows with metadata
-            self.input_data = self.input_data.reset_index(drop=True) # reset indices after dropping
-            # self.input_data.drop(self.input_data.index[0:75],axis=0)
-            n_analytes = len(self.input_data.columns)-1 # get the number of analytes from the number of active collectors
-            # set up variables to be updated in a loop. These append the same number of strings and buttons to the modal as there are active collectors
-            nth_iter = 0
-            rth_row = 0
-            for n in range(n_analytes):
-                # loop through rows and columns, putting in a string and button to select if data is incoming as volts or counts
-                fastgrid_layout.modal[rth_row].append(pn.Column(pn.Row(pn.widgets.TextInput(placeholder='Mass')),
-                                                                pn.Row(pn.widgets.RadioButtonGroup(options=['Volts','Counts']))))
-                nth_iter = nth_iter + 1
-                if nth_iter % 3 == 0:
-                    rth_row = rth_row + 1
-            fastgrid_layout.modal[-1].append(pn.Column(buttons_))
-            fastgrid_layout.open_modal()
-            
-    @pn.depends('analytes_')
-    def accept_array(self,event=None):
-        """
-        Function triggered that accepts input collector block and inputs necessary columns for recording metadata during reduction. Closes modal
-
-        """
-        n_analytes = len(self.input_data.columns)-1
-        nth_iter = 0
-        nth_iter_col = 0
-        rth_row = 0
-        added_analytes_list = []
-        for n in range(n_analytes):
-            next_analyte = fastgrid_layout.modal[rth_row][nth_iter][0][0].value
-            detector_type = fastgrid_layout.modal[rth_row][nth_iter][1][0].value
-            self.input_data = self.input_data.rename(columns={self.input_data.columns[nth_iter_col+1]: next_analyte})
-            added_analytes_list.append(next_analyte)
-            if detector_type == 'Faraday':
-                self.input_data[next_analyte] = self.input_data[next_analyte] / volt_count_constant
-            elif detector_type == 'IC':
-                pass
-            nth_iter = nth_iter + 1
-            nth_iter_col = nth_iter_col + 1
-            if nth_iter % 3 == 0:
-                rth_row = rth_row + 1
-                nth_iter = 0    
-        self.param.analytes_.objects = added_analytes_list            
-        self.input_data['Time'] = self.input_data['Time Stamp (S)']
-        self.input_data = self.input_data.drop('Time Stamp (S)',axis=1)
-        self.input_data['Time'] = self.input_data['Time'].astype('float')
-        self.input_data = self.input_data.reset_index(drop=True)
-        self.stored_intervals_data = pd.DataFrame([np.zeros(len(self.input_data.columns))],columns=list(self.input_data.columns))
-        self.stored_intervals_data.insert(0,'measurementindex',0)
-        self.stored_intervals_data.insert(1,'SampleLabel',0)
-        self.stored_intervals_data.insert(2,'Analysis Start',0)
-        self.stored_intervals_data.insert(3,'Analysis End',0)
-
-        fastgrid_layout.close_modal()
-            
-            
-    @pn.depends('analysis_start','analysis_end')
-    def jump_sliders(self,event=None, watch=True):
-        """
-        Function that advances ('jumps') sliders forward based on the jump time
-
-        """
-        self.analysis_start = self.analysis_start+self.jump_time
-        self.analysis_end = self.analysis_end+self.jump_time
-        
-        
-    @pn.depends('input_data','analysis_start','analysis_end','analytes_','logcountsdata')
-    def call_simple_ablation_plot(self):
-        """
-        Function that calls and places the plot with time resolved analytes into a bokeh pane
-
-        Returns
-        -------
-        bokeh pane
-            hosts figure
-
-        """
-        if self.output_data is not None:
-            data_toplot = self.input_data
-            return pn.pane.Bokeh(row(plots.simple_ablation_plot(data_toplot,self.analysis_start,self.analysis_end,self.logcountsdata,self.analytes_)))
-        
-        
-    @pn.depends('input_data')
-    def add_reduction(self, event=None):
-        """
-        Function that clears any residuals input from uploading data or previously approved analyses, then generates fresh ones in a modal
-
-        Parameters
-        ----------
-        event : open panel modal
-
-        """      
-        # clear current modal
-        fastgrid_layout.modal[0].clear()
-        fastgrid_layout.modal[1].clear()
-        fastgrid_layout.modal[2].clear()
-        fastgrid_layout.modal[3].clear()
-        fastgrid_layout.modal[4].clear()
-        
-        # put button and text box on modal for recording sample name
-        fastgrid_layout.modal[0].append(buttons_sample) # this needs to be a button widget implemented when calling class instance that is linked to the store_interval_button above
-        fastgrid_layout.modal[1].append(pn.widgets.TextInput(placeholder='Enter Sample Name'))
-        
-        fastgrid_layout.open_modal()
-        
-        
-    def store_interval(self,event=None):
-        """
-        Function that gets the fully reduced data and sends it to the output data file that will be exported. Closes modal.
-
-        """
-        new_interval_df = pd.DataFrame([0,0,0,0],columns=self.stored_intervals_data.columns)
-        new_index = 0
-        sample_name = fastgrid_layout.modal[1][0].value
-        new_interval_df['SampleLabel'] = sample_name
-        new_interval_df['Analysis Start'] = self.analysis_start
-        new_interval_df['Analysis End'] = self.analysis_end
-
-            
-        self.stored_intervals_data = pd.concat([self.stored_intervals_data,new_interval_df],ignore_index=True)
-    
-        fastgrid_layout.close_modal()
-        
-        
-    @pn.depends('stored_intervals_widget',watch=True)
-    def _update_stored_intervals_widget(self):
-        """
-        Function that displays intervals data when updated
-
-        Returns
-        -------
-        Tabulator table
-            hosts output data
-
-        """
-        if self.stored_intervals_data is not None:
-            self.stored_intervals_widget = self.stored_intervals_data
-            self.stored_intervals_widget.height = 400
-            self.stored_intervals_widget.heightpolicy = 'Fixed'
-            return pn.widgets.Tabulator(self.stored_intervals_widget,width=600) # use 600 for large screen, 100-150 for small screen 
-    
-        
-# %%
-class reduce_intervals(param.parameterized):
-    update_output_button = param.Action(lambda x: x.evaluate_output_data(),label='Evaluate Interval') # Button that triggers function to add output data
-
-
-
-
-# %%
 class make_plots(param.Parameterized):
     """ class that parameterizes inputs and sends them to the above functions to be rendered in a GUI"""
     update_output_button = param.Action(lambda x: x.evaluate_output_data(),label='Evaluate Interval') # Button that triggers function to add output data
-    export_data_button = param.Action(lambda x: x.export_data(),label='DDDT!') # button that triggers function to export the reduced data
-    jump_forward_button = param.Action(lambda x: x.jump_sliders(),label='Jump Sliders') # button that triggers sliders to jump forward
 
     lock_ablation_start_true = param.Boolean(True,label='Lock Back Projection')
     ablation_start_true = param.Number(30.9) # parameterize a number that defines where regressions get projected back to for t0 intercept
-    jump_time = param.Number(53) # number that defines how far to jump sliders when function is triggered
     
     # set up list of clickable buttons to choose which ratios gets plotted
     ratio_buttons = param.ListSelector(default=['206Pb/238U'], objects=['206Pb/238U','207Pb/235U','208Pb/232Th','207Pb/206Pb','238U/235U','206Pb/204Pb'])
@@ -1188,88 +989,45 @@ class make_plots(param.Parameterized):
     analytes_ = param.ListSelector(default=[],objects=[]) # set up empty list to be populated with analytes in order to choose which gets plotted
     # list of buttons to choose whether to reduce using total counts or means + regression
     counts_mode = param.Selector(default='Total Counts',objects=['Total Counts','Means & Regression']) 
-    # integration time variable. Has a default but gets reassigned based on Nu output file
-    integration_time = param.Number(default=0.01)
     # boolean button to choose whether or not to calculate confidence ellipsoids
     ellipsemode_selector = param.Boolean(True,label='Generate Ellipse')
-    power = param.Number(default=0.05) #power for confidence ellipse
+    power = param.Number(default=0.1353) #power for confidence ellipse. 2s CI for 2D data (see Reiners et al Thermo/Geochron)
     
     input_data = param.DataFrame(precedence=-1) # initialize dataframe to be populated with uploaded data
-    file_path = param.String(default='Insert File Path') # string that will be populated with file path
+    # file_path = param.String(default='Insert File Path') # string that will be populated with file path
     output_data = param.DataFrame(precedence=-1) # initialize dataframe to be populated with output data
-    output_data_ellipse = param.DataFrame(precedence=-1) # initialize dataframe to be populated with ellipsoid output data
+    # output_data_ellipse = param.DataFrame(precedence=-1) # initialize dataframe to be populated with ellipsoid output data
     
-    accept_array_button = param.Action(lambda x: x.close_modal_setdata(),label='Accept Detector Array') # button that triggers the collector block anaalyte assignments to be accepted
     accept_interval_button = param.Action(lambda x: x.send_reduction(),label='Accept Interval') # button that triggers sample name to be accepted and ablation to be reduced
     ablation_start = param.Number(51.1,bounds=(0,8600),softbounds=(50,90),step=0.1) # number that defines where ablation intervals starts
     ablation_end = param.Number(76.3,bounds=(0,8600),step=0.1) # number that defines where ablation ends
     background_start = param.Number(31.2,bounds=(0,8600),step=0.1) # number that defines where background starts
     background_end = param.Number(46.3,bounds=(0,8600),step=0.1) # number that defines where background ends
     
-        
+                
     def __init__(self,**params):
         super().__init__(**params)
         self.file_input_widget = pn.Param(self.param.input_data)
         self.output_data_widget = pn.Param(self.param.output_data)
-        self.output_data_ellipse_widget = pn.Param(self.param.output_data_ellipse)
         self.widgets = pn.Param(self,parameters=['update_output_button','export_data_button','lock_ablation_start_true',
-                                                 'ablation_start_true','jump_time',
+                                                 'ablation_start_true',
                                                  'logcountsdata','analytes_',
                                                  'ratio_buttons','regression_buttons','counts_mode',
                                                  'ellipsemode_selector','power',
-                                                 'integration_time','file_path',
                                                  'ablation_start','ablation_end','background_start','background_end',
+                                                 'input_data','output_data'
                                                  ])
-    
-    @pn.depends('file_path',watch=True)
-    def _uploadfile(self):
-        """
-        Function that handles the output Nu file and uploads raw data into software
-        -------
-        Opens a modal that allows the user to input their collector array
 
-        """
-        if self.file_path != 'Insert File Path':
-            df = pd.read_excel(self.file_path,header=None) # read file
-            self.integration_time = df.iloc[69,1] # grab the integration time used for the analytical session
-            self.input_data = df # assign input file to the initialized dataframe
-            self.input_data.columns = self.input_data.iloc[76] # assign columns to the list of high/lowmass column (e.g., L204) output by the Nu
-            self.input_data = self.input_data.drop(columns=['Cycle','Section','Type','Trigger Status']) # drop columns with these titles
-            self.input_data = self.input_data.drop(self.input_data.index[0:77],axis=0) # drop rows with metadata
-            self.input_data = self.input_data.reset_index(drop=True) # reset indices after dropping
-            # self.input_data.drop(self.input_data.index[0:75],axis=0)
-            n_analytes = len(self.input_data.columns)-1 # get the number of analytes from the number of active collectors
-            # set up variables to be updated in a loop. These append the same number of strings and buttons to the modal as there are active collectors
-            nth_iter = 0
-            rth_row = 0
-            for n in range(n_analytes):
-                # loop through rows and columns, putting in a string and button to select Faraday or IC (i.e., whether data is in volts or counts, repsectively)
-                fastgrid_layout.modal[rth_row].append(pn.Column(pn.Row(pn.widgets.TextInput(placeholder='Mass')),
-                                                                pn.Row(pn.widgets.RadioButtonGroup(options=['Faraday','IC']))))
-                nth_iter = nth_iter + 1
-                if nth_iter % 3 == 0:
-                    rth_row = rth_row + 1
-            fastgrid_layout.modal[-1].append(pn.Column(buttons_))
-            fastgrid_layout.open_modal()
-            
+    # @pn.cache(per_session=True)
+    # def get_cached_data(self):
+    #     if 'input_data' in pn.state.cache:
+    #         self.input_data = pn.state.cache['input_data']
+    #     if 'stored_intervals_data' in pn.state.cache:
+    #         self.output_data = pn.state.cache['stored_intervals_data']
+    #     else:
+    #         print('Cached Data Not Recognized')
+        # return self.input_data, self.output_data
     
-        
-    @pn.depends('ablation_start_true','background_start','background_end','ablation_start','ablation_end','jump_time','lock_ablation_start_true')
-    def jump_sliders(self,event=None, watch=True):
-        """
-        Function that advances ('jumps') sliders forward based on the jump time
-
-        """
-        if self.lock_ablation_start_true == True:
-            self.ablation_start_true = self.ablation_start+self.jump_time
-        else:
-            self.ablation_start_true = self.ablation_start_true+self.jump_time
-        self.ablation_end = self.ablation_end+self.jump_time
-        self.ablation_start = self.ablation_start+self.jump_time
-        self.background_end = self.background_end+self.jump_time
-        self.background_start = self.background_start+self.jump_time
-        
-        
     @pn.depends('input_data','background_start','background_end','ablation_start','ablation_end','ablation_start_true','analytes_','lock_ablation_start_true')
     def call_ablation_plot(self):
         """
@@ -1437,85 +1195,21 @@ class make_plots(param.Parameterized):
             self.output_data = pd.concat([self.output_data,data_approved],ignore_index=True)
     
         fastgrid_layout.close_modal()
- 
-        
-    @pn.depends('analytes_')
-    def close_modal_setdata(self,event=None):
-        """
-        Function triggered that accepts input collector block and inputs necessary columns for recording metadata during reduction. Closes modal
 
-        """
-        n_analytes = len(self.input_data.columns)-1
-        nth_iter = 0
-        nth_iter_col = 0
-        rth_row = 0
-        added_analytes_list = []
-        for n in range(n_analytes):
-            next_analyte = fastgrid_layout.modal[rth_row][nth_iter][0][0].value
-            detector_type = fastgrid_layout.modal[rth_row][nth_iter][1][0].value
-            self.input_data = self.input_data.rename(columns={self.input_data.columns[nth_iter_col+1]: next_analyte})
-            added_analytes_list.append(next_analyte)
-            if detector_type == 'Faraday':
-                self.input_data[next_analyte] = self.input_data[next_analyte] / volt_count_constant
-            elif detector_type == 'IC':
-                pass
-            nth_iter = nth_iter + 1
-            nth_iter_col = nth_iter_col + 1
-            if nth_iter % 3 == 0:
-                rth_row = rth_row + 1
-                nth_iter = 0    
-        self.param.analytes_.objects = added_analytes_list            
-        self.input_data['Time'] = self.input_data['Time Stamp (S)']
-        self.input_data = self.input_data.drop('Time Stamp (S)',axis=1)
-        self.input_data['Time'] = self.input_data['Time'].astype('float')
-        self.input_data = self.input_data.reset_index(drop=True)
-        self.output_data = pd.DataFrame([np.zeros(len(self.input_data.columns))],columns=list(self.input_data.columns))
-        self.output_data.insert(0,'measurementindex',0)
-        self.output_data.insert(1,'SampleLabel',0)
-        self.output_data.insert(2,'t start',0)
-        self.output_data.insert(3,'t end',0)
-        self.output_data.insert(4,'t project',0)
-        self.output_data.insert(5,'b start',0)
-        self.output_data.insert(6,'b end',0)
-        # analytelength = len(self.input_data.columns)-1
-        if self.ellipsemode_selector is True:
-            self.output_data_ellipse = pd.DataFrame([np.zeros(len(self.input_data.columns))],columns=list(self.input_data.columns))
-            self.output_data_ellipse.insert(0,'measurementindex',0)
-            self.output_data_ellipse.insert(1,'SampleLabel',0)
-            self.output_data_ellipse.insert(2,'t start',0)
-            self.output_data_ellipse.insert(3,'t end',0)
-            self.output_data_ellipse.insert(4,'t project',0)
-            self.output_data_ellipse.insert(5,'b start',0)
-            self.output_data_ellipse.insert(4,'b end',0)
-        else:
-            pass
-        fastgrid_layout.close_modal()
-        
-        
-    @pn.depends('output_data','output_data_ellipse')
-    def export_data(self,event=None):
-        """
-        Function that exports the reduced data in an excel file
+    # @pn.cache(per_session=True)
+    # @pn.depends('input_data','output_data',watch=True)
+    # def share_data(self):
+    #     if self.input_data is not None and self.output_data is not None:
+    #         pn.state.cache['input_data'] = self.input_data
+    #         pn.state.cache['stored_output_data'] = self.output_data
+            
+    #         return pn.state.cache['input_data'], pn.state.cache['stored_output_data']
 
-        Parameters
-        ----------
-        event : pd.to_excel
-
-        """
-        self.output_data.to_excel('output_lasertramZ.xlsx')
-        if self.ellipsemode_selector is True and self.output_data_ellipse is not None:
-            self.output_data_ellipse.to_excel('output_CEllipse_lasertramZ.xlsx')
-        else:
-            pass
-
-
-# %%
 callapp = make_plots(name='Reduce Ablation Data')
+# %%
 
 pn.extension('tabulator','mathjax')
 
-buttons_=pn.WidgetBox(pn.Param(callapp.param.accept_array_button,
-                               widgets={'accept_array_button': pn.widgets.Button(name='Accept Detector Array',button_type='success')}))
 buttons_sample=pn.WidgetBox(pn.Param(callapp.param.accept_interval_button,
                                widgets={'accept_interval_button': pn.widgets.Button(name='Accept Sample Name',button_type='success')}))
 
@@ -1523,7 +1217,6 @@ buttons_sample=pn.WidgetBox(pn.Param(callapp.param.accept_interval_button,
 widgets={'ratio_buttons': pn.widgets.CheckBoxGroup,
          'regression_buttons': pn.widgets.CheckBoxGroup,
          'counts_mode': pn.widgets.RadioButtonGroup,
-         'export_data_button': pn.widgets.Button(name='DDDT!',button_type='success'),
          'analytes_': pn.widgets.CheckBoxGroup,
          'ablation_start': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(51.1),step=0.1,name='Ablation Start'),
          'ablation_end': pn.widgets.EditableFloatSlider(start=0,end=8600,value=(76.3),step=0.1,name='Ablation End'),
@@ -1552,7 +1245,7 @@ fastgrid_layout.main.append(pn.Row(pn.WidgetBox(pn.Param(callapp.param.ablation_
 fastgrid_layout.main.append(pn.Column(callapp.call_ablation_plot,pn.Row(callapp.call_ratio_plot,callapp.call_ratio_plot76))) # for vanilla
 fastgrid_layout.main.append(pn.Column(callapp._update_output_widget))
 
-fastgrid_layout.show();
+# fastgrid_layout.show();
+fastgrid_layout.servable()
 
 
-    
